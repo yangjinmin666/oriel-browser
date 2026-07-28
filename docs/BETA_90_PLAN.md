@@ -1,0 +1,75 @@
+# Oriel Beta 90% 收口计划
+
+本文定义 Oriel 在当前产品定位下的 90% 完成标准：面向 macOS 小范围 Beta 用户的、本地优先的人机协作浏览器控制台。
+
+## 产品边界
+
+Oriel 不是 Chromium 分支，也不承诺绕过网站的风控或验证码。它负责把用户选择的 Chromium 浏览器（当前为 Chrome、Tabbit、Edge）安全地连接给 Codex，并保留由用户自己完成的登录状态。
+
+本轮不包含：
+
+- Safari、Firefox 或新的浏览器协议适配。
+- Apple Developer ID 签名、公证和自动更新服务。
+- 云同步、团队管理、远程控制或商业计费。
+- 自动处理验证码、风控或任何高后果网站操作。
+
+## 90% 的验收定义
+
+| 能力 | Beta 通过标准 |
+| --- | --- |
+| 初次使用 | 用户可在应用内完成浏览器选择、启动、登录和 Codex 集成安装；每一步都有明确状态。 |
+| 浏览器生命周期 | 可启动、停止、识别已在运行的受控浏览器；失败时提示可执行的修复动作。 |
+| 本地安全 | 调试端点仅限 localhost；daemon socket 仅限当前用户；修复操作不删除 Profile 或登录状态。 |
+| 诊断 | App 和 CLI 都能报告浏览器、配置、daemon、CLI、Skill 的独立状态；机器可读诊断可用于测试。 |
+| Agent 工作流 | daemon、任务空间、快照、定位、输入、等待、下载等运行时测试全部通过。 |
+| 发布质量 | 单一版本来源；构建会检查架构和中英文资源；DMG、签名校验、打包资源检查均可重复运行。 |
+| 文档 | 用户安装、问题定位、安全边界、Beta 限制和维护者检查路径一致。 |
+
+## 本轮阶段
+
+### B1. 运行时健康与配置
+
+- 严格校验配置的端点、端口、浏览器路径和 Profile 路径。
+- 增加结构化 `oriel --doctor --json` 输出。
+- 给配置与诊断行为补 Node 测试。
+
+### B2. macOS 控制台收口
+
+- 控制台展示浏览器、Codex 集成与本地连接的单项状态。
+- 增加不会清除登录状态的“修复连接”动作。
+- 启动操作避免重复拉起已运行的浏览器。
+- 所有新增文案都有英文和简体中文 key。
+
+### B3. 可重复发布
+
+- 用单一版本文件生成应用和 DMG 名称。
+- 增加 Beta 验证脚本，覆盖测试、构建、签名、DMG 和应用资源。
+- CI 覆盖 host 测试、架构检查、应用打包和 Beta 验证。
+
+### B4. 用户与公开仓库资料
+
+- 补充诊断、隐私、安全与 Beta 限制说明。
+- 增加公开前检查，阻止配置、Cookie、Profile、私钥和常见令牌进入提交。
+
+## 完成判据
+
+只有以下命令全部成功，本轮才可以称为 Beta 90%：
+
+```bash
+./scripts/check-architecture.sh
+node --test host-shim/*.test.mjs
+npm --prefix package/ego-browser test
+npm --prefix package/ego-browser run validate:site-skills
+./scripts/verify-beta.sh
+```
+
+`verify-beta.sh` 会构建应用、验证包内运行时与本地化资源、检查签名、创建并验证 DMG。它不启动用户日常浏览器，也不读取登录态。
+
+## 正式发布前的外部依赖
+
+- Apple Developer Program 证书与 Developer ID 签名。
+- Apple 公证凭据。
+- 更新分发渠道和更新签名。
+- 在真实 Beta 用户设备上的兼容性回归。
+
+这些依赖完成后，Oriel 才从 Beta 90% 进入可公开分发的正式发布阶段。

@@ -32,9 +32,22 @@ const DAEMON_LOG_PATH =
   join(APP_SUPPORT_DIR, "daemon.log");
 const args = process.argv.slice(2);
 if (args[0] === "nodejs") args.shift();
-
-const config = loadRuntimeConfig();
 process.env.EGO_BROWSER_AGENT_WORKSPACE ||= SKILL_DIR;
+
+function wantsJson() {
+  return args.includes("--json");
+}
+
+function loadConfigForCommand() {
+  try {
+    return { config: loadRuntimeConfig(), error: null };
+  } catch (error) {
+    return {
+      config: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 async function endpointReady(endpoint) {
   try {
@@ -99,30 +112,85 @@ async function ensureDaemon() {
   );
 }
 
-if (args[0] === "--doctor" || args[0] === "--daemon-status") {
-  const ready = await endpointReady(config.endpoint);
+async function doctorReport({ config, configError }) {
+  const ready = config ? await endpointReady(config.endpoint) : false;
   let daemonStatus = null;
   try {
     const connection = await connectExistingDaemon();
     daemonStatus = connection.status;
     await connection.client.close();
   } catch {}
+
+  return {
+    schemaVersion: 1,
+    status:
+      config && ready && daemonStatus
+        ? "ready"
+        : config && ready
+          ? "browser-ready"
+          : config
+            ? "needs-attention"
+            : "invalid-config",
+    configuration: config
+      ? {
+          valid: true,
+          browserId: config.browserId,
+          browserName: config.browserName,
+          endpoint: config.endpoint,
+        }
+      : { valid: false, error: configError },
+    browser: { connected: ready },
+    daemon: daemonStatus
+      ? {
+          running: true,
+          pid: daemonStatus.pid,
+          clients: daemonStatus.clients,
+        }
+      : { running: false },
+  };
+}
+
+function writeDoctorReport(report) {
+  if (wantsJson()) {
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+    return;
+  }
   process.stdout.write(
     [
-      `Oriel: ${ready ? "ready" : "browser not running"}`,
-      `Browser: ${config.browserName}`,
-      `Endpoint: ${config.endpoint}`,
-      `Daemon: ${daemonStatus ? `ready (pid ${daemonStatus.pid})` : "not running"}`,
-      ready && daemonStatus
+      `Oriel: ${report.status}`,
+      report.configuration.valid
+        ? `Browser: ${report.configuration.browserName}`
+        : `Configuration: ${report.configuration.error}`,
+      report.configuration.valid
+        ? `Endpoint: ${report.configuration.endpoint}`
+        : "Endpoint: unavailable",
+      `Daemon: ${report.daemon.running ? `ready (pid ${report.daemon.pid})` : "not running"}`,
+      report.status === "ready"
         ? "Codex can reuse persistent browser sessions now."
-        : ready
+        : report.browser.connected
           ? "The browser is ready; the daemon starts automatically on the first task."
           : "Open the Oriel control center and start the browser.",
       "",
     ].join("\n"),
   );
-  process.exit(ready ? 0 : 1);
 }
+
+const configState = loadConfigForCommand();
+
+if (args[0] === "--doctor" || args[0] === "--daemon-status") {
+  const report = await doctorReport({
+    config: configState.config,
+    configError: configState.error,
+  });
+  writeDoctorReport(report);
+  process.exit(report.status === "ready" ? 0 : 1);
+}
+
+if (!configState.config) {
+  throw new Error(configState.error);
+}
+
+const config = configState.config;
 
 if (args[0] === "--daemon-stop") {
   try {

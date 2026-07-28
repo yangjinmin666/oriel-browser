@@ -8,6 +8,7 @@ import {
   DEFAULT_CONFIG,
   loadRuntimeConfig,
   normalizeEndpoint,
+  normalizePort,
 } from "./runtime-config.mjs";
 
 test("uses safe localhost default when no config exists", () => {
@@ -16,7 +17,10 @@ test("uses safe localhost default when no config exists", () => {
 });
 
 test("normalizes localhost endpoints", () => {
-  assert.equal(normalizeEndpoint("http://127.0.0.1:9999/"), "http://127.0.0.1:9999");
+  assert.equal(
+    normalizeEndpoint("http://127.0.0.1:9999/"),
+    "http://127.0.0.1:9999",
+  );
 });
 
 test("rejects remote debugging endpoints outside localhost", () => {
@@ -27,10 +31,7 @@ test("rejects remote debugging endpoints outside localhost", () => {
 });
 
 test("rejects non-HTTP debugging endpoints", () => {
-  assert.throws(
-    () => normalizeEndpoint("ws://127.0.0.1:9222"),
-    /只支持 HTTP/,
-  );
+  assert.throws(() => normalizeEndpoint("ws://127.0.0.1:9222"), /只支持 HTTP/);
 });
 
 test("loads a selected browser without losing secure defaults", () => {
@@ -60,4 +61,49 @@ test("fills endpoint and port defaults for partial configuration", () => {
   const config = loadRuntimeConfig(path);
   assert.equal(config.endpoint, DEFAULT_CONFIG.endpoint);
   assert.equal(config.port, DEFAULT_CONFIG.port);
+});
+
+test("normalizes a portless local endpoint to the configured port", () => {
+  const dir = mkdtempSync(join(tmpdir(), "oriel-"));
+  const path = join(dir, "config.json");
+  writeFileSync(
+    path,
+    JSON.stringify({ endpoint: "http://localhost", port: 12456 }),
+  );
+  const config = loadRuntimeConfig(path);
+  assert.equal(config.endpoint, "http://localhost:12456");
+  assert.equal(config.port, 12456);
+});
+
+test("rejects endpoint and port disagreement", () => {
+  assert.throws(
+    () => normalizeEndpoint("http://127.0.0.1:9222", 9223),
+    /端点端口与配置端口不一致/,
+  );
+});
+
+test("rejects credentials and path fragments in endpoints", () => {
+  assert.throws(
+    () => normalizeEndpoint("http://user:pass@127.0.0.1:9222"),
+    /不能包含账号或密码/,
+  );
+  assert.throws(
+    () => normalizeEndpoint("http://127.0.0.1:9222/json/version"),
+    /不能包含路径、查询参数或片段/,
+  );
+});
+
+test("rejects relative browser and profile paths", () => {
+  const dir = mkdtempSync(join(tmpdir(), "oriel-"));
+  const path = join(dir, "config.json");
+  writeFileSync(path, JSON.stringify({ browserPath: "Chrome" }));
+  assert.throws(() => loadRuntimeConfig(path), /browserPath 必须是绝对路径/);
+
+  writeFileSync(path, JSON.stringify({ profilePath: "profiles/chrome" }));
+  assert.throws(() => loadRuntimeConfig(path), /profilePath 必须是绝对路径/);
+});
+
+test("rejects invalid ports before starting a browser", () => {
+  assert.throws(() => normalizePort(80), /1024 到 65535/);
+  assert.throws(() => normalizePort("not-a-port"), /1024 到 65535/);
 });
