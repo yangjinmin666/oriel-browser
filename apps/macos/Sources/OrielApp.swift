@@ -509,7 +509,7 @@ struct ControlCenterView: View {
                 HStack(spacing: 11) {
                     OrielLogoMark(size: 34)
                     Text(Brand.displayName)
-                        .font(.custom("Sora", fixedSize: 24).weight(.semibold))
+                        .font(.custom("Space Grotesk", fixedSize: 24).weight(.semibold))
                 }
                 Spacer()
                 StatusPill(
@@ -690,84 +690,230 @@ struct ControlCenterView: View {
     }
 }
 
-struct ParticleField: View {
+struct GridScanField: View {
+    @State private var pointer = CGPoint(x: 0.5, y: 0.5)
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            Canvas { context, size in
-                let time = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
-                let background = Path(CGRect(origin: .zero, size: size))
-                context.fill(
-                    background,
-                    with: .linearGradient(
-                        Gradient(colors: [
-                            Color(red: 0.985, green: 0.985, blue: 0.990),
-                            Color(red: 0.945, green: 0.945, blue: 0.955),
-                            Color(red: 0.975, green: 0.975, blue: 0.982)
-                        ]),
-                        startPoint: .zero,
-                        endPoint: CGPoint(x: size.width, y: size.height)
-                    )
-                )
-
-                for index in 0..<96 {
-                    let seed = CGFloat(index)
-                    let speed = 0.010 + CGFloat(index % 7) * 0.0018
-                    let baseX = fractional(sin(seed * 12.9898) * 43_758.5453)
-                    let baseY = fractional(sin((seed + 17) * 78.233) * 12_345.678)
-                    let drift = time * speed
-                    let x = fractional(baseX + drift) * size.width
-                    let currentY = fractional(
-                        baseY
-                            + drift * (0.14 + CGFloat(index % 5) * 0.035)
-                            + sin(time * 0.18 + seed) * 0.018
-                    )
-                    let y = currentY * size.height
-                    let radius = 0.7 + CGFloat(index % 6) * 0.38
-                    let alpha = 0.10 + Double(index % 5) * 0.038
-                    let particle = Path(
-                        ellipseIn: CGRect(
-                            x: x - radius,
-                            y: y - radius,
-                            width: radius * 2,
-                            height: radius * 2
-                        )
-                    )
+        GeometryReader { proxy in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                Canvas { context, size in
+                    let time = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
+                    let background = Path(CGRect(origin: .zero, size: size))
                     context.fill(
-                        particle,
-                        with: .color(
-                            Color(
-                                white: 0.02 + Double(index % 4) * 0.055,
-                                opacity: alpha
-                            )
+                        background,
+                        with: .linearGradient(
+                            Gradient(colors: [
+                                Color(red: 0.986, green: 0.986, blue: 0.990),
+                                Color(red: 0.944, green: 0.944, blue: 0.952),
+                                Color(red: 0.978, green: 0.978, blue: 0.982)
+                            ]),
+                            startPoint: .zero,
+                            endPoint: CGPoint(x: size.width, y: size.height)
                         )
                     )
 
-                    if index % 12 == 0 {
-                        let trail = Path(
-                            roundedRect: CGRect(
-                                x: x - 18,
-                                y: y - 0.45,
-                                width: 18,
-                                height: 0.9
-                            ),
-                            cornerRadius: 0.45
+                    let vanishingPoint = CGPoint(
+                        x: size.width * (0.5 + (pointer.x - 0.5) * 0.13),
+                        y: size.height * (0.46 + (pointer.y - 0.5) * 0.09)
+                    )
+                    let outer = [
+                        CGPoint(x: -size.width * 0.20, y: -size.height * 0.18),
+                        CGPoint(x: size.width * 1.20, y: -size.height * 0.18),
+                        CGPoint(x: size.width * 1.20, y: size.height * 1.18),
+                        CGPoint(x: -size.width * 0.20, y: size.height * 1.18)
+                    ]
+
+                    drawRays(
+                        context: &context,
+                        size: size,
+                        vanishingPoint: vanishingPoint,
+                        outer: outer,
+                        time: time
+                    )
+
+                    for index in 1...22 {
+                        let normalized = CGFloat(index) / 22
+                        let depth = pow(normalized, 1.72)
+                        let jitter = sin(time * 1.65 + CGFloat(index) * 2.31) * 0.0018
+                        let ring = ringPath(
+                            vanishingPoint: vanishingPoint,
+                            outer: outer,
+                            amount: min(1, max(0, depth + jitter))
+                        )
+                        context.stroke(
+                            ring,
+                            with: .color(Color(red: 0.16, green: 0.16, blue: 0.18).opacity(0.18)),
+                            lineWidth: 0.85
+                        )
+                    }
+
+                    drawScan(
+                        context: &context,
+                        vanishingPoint: vanishingPoint,
+                        outer: outer,
+                        time: time
+                    )
+
+                    for index in 0..<54 {
+                        let seed = CGFloat(index)
+                        let x = fractional(sin(seed * 12.9898) * 43_758.5453) * size.width
+                        let y = fractional(sin((seed + 19) * 78.233) * 12_345.678) * size.height
+                        let radius = 0.35 + CGFloat(index % 3) * 0.25
+                        let grain = Path(
+                            ellipseIn: CGRect(
+                                x: x - radius,
+                                y: y - radius,
+                                width: radius * 2,
+                                height: radius * 2
+                            )
                         )
                         context.fill(
-                            trail,
-                            with: .linearGradient(
-                                Gradient(colors: [
-                                    Color.clear,
-                                    Color.black.opacity(0.12)
-                                ]),
-                                startPoint: CGPoint(x: x - 18, y: y),
-                                endPoint: CGPoint(x: x, y: y)
-                            )
+                            grain,
+                            with: .color(Color.black.opacity(0.025 + Double(index % 4) * 0.008))
                         )
+                    }
+                }
+            }
+            .onContinuousHover(coordinateSpace: .local) { phase in
+                switch phase {
+                case .active(let location):
+                    pointer = CGPoint(
+                        x: min(1, max(0, location.x / max(1, proxy.size.width))),
+                        y: min(1, max(0, location.y / max(1, proxy.size.height)))
+                    )
+                case .ended:
+                    withAnimation(.easeOut(duration: 0.28)) {
+                        pointer = CGPoint(x: 0.5, y: 0.5)
                     }
                 }
             }
         }
         .ignoresSafeArea()
+    }
+
+    private func drawRays(
+        context: inout GraphicsContext,
+        size: CGSize,
+        vanishingPoint: CGPoint,
+        outer: [CGPoint],
+        time: CGFloat
+    ) {
+        let segments = 9
+        for edge in 0..<4 {
+            let start = outer[edge]
+            let end = outer[(edge + 1) % 4]
+            for index in 0...segments {
+                let amount = CGFloat(index) / CGFloat(segments)
+                var endpoint = CGPoint(
+                    x: start.x + (end.x - start.x) * amount,
+                    y: start.y + (end.y - start.y) * amount
+                )
+                let jitter = sin(time * 1.8 + CGFloat(edge * 13 + index) * 1.41) * 1.1
+                if edge % 2 == 0 {
+                    endpoint.x += jitter
+                } else {
+                    endpoint.y += jitter
+                }
+                var ray = Path()
+                ray.move(to: vanishingPoint)
+                ray.addLine(to: endpoint)
+                context.stroke(
+                    ray,
+                    with: .color(Color(red: 0.18, green: 0.18, blue: 0.20).opacity(0.16)),
+                    lineWidth: 0.8
+                )
+            }
+        }
+    }
+
+    private func drawScan(
+        context: inout GraphicsContext,
+        vanishingPoint: CGPoint,
+        outer: [CGPoint],
+        time: CGFloat
+    ) {
+        let duration: CGFloat = 2.0
+        let delay: CGFloat = 1.1
+        let cycle = duration + delay
+        let cycleIndex = Int(floor(time / cycle))
+        let cycleTime = time.truncatingRemainder(dividingBy: cycle)
+        guard cycleTime >= delay else { return }
+
+        var phase = min(1, max(0, (cycleTime - delay) / duration))
+        if cycleIndex % 2 == 1 {
+            phase = 1 - phase
+        }
+        let eased = phase * phase * (3 - 2 * phase)
+        let depth = 0.07 + eased * 0.91
+        let scan = ringPath(
+            vanishingPoint: vanishingPoint,
+            outer: outer,
+            amount: depth
+        )
+
+        context.drawLayer { layer in
+            layer.addFilter(.blur(radius: 10))
+            layer.stroke(
+                scan,
+                with: .color(Color.black.opacity(0.12)),
+                lineWidth: 18
+            )
+        }
+        context.stroke(
+            scan,
+            with: .color(Color.black.opacity(0.34)),
+            lineWidth: 1.4
+        )
+
+        let inner = ringPoints(
+            vanishingPoint: vanishingPoint,
+            outer: outer,
+            amount: max(0.02, depth - 0.025)
+        )
+        let outside = ringPoints(
+            vanishingPoint: vanishingPoint,
+            outer: outer,
+            amount: min(1, depth + 0.025)
+        )
+        var band = Path()
+        band.move(to: inner[0])
+        inner.dropFirst().forEach { band.addLine(to: $0) }
+        outside.reversed().forEach { band.addLine(to: $0) }
+        band.closeSubpath()
+        context.fill(
+            band,
+            with: .color(Color.black.opacity(0.035))
+        )
+    }
+
+    private func ringPath(
+        vanishingPoint: CGPoint,
+        outer: [CGPoint],
+        amount: CGFloat
+    ) -> Path {
+        let points = ringPoints(
+            vanishingPoint: vanishingPoint,
+            outer: outer,
+            amount: amount
+        )
+        var path = Path()
+        path.move(to: points[0])
+        points.dropFirst().forEach { path.addLine(to: $0) }
+        path.closeSubpath()
+        return path
+    }
+
+    private func ringPoints(
+        vanishingPoint: CGPoint,
+        outer: [CGPoint],
+        amount: CGFloat
+    ) -> [CGPoint] {
+        outer.map { point in
+            CGPoint(
+                x: vanishingPoint.x + (point.x - vanishingPoint.x) * amount,
+                y: vanishingPoint.y + (point.y - vanishingPoint.y) * amount
+            )
+        }
     }
 
     private func fractional(_ value: CGFloat) -> CGFloat {
@@ -780,7 +926,7 @@ struct WelcomeView: View {
 
     var body: some View {
         ZStack {
-            ParticleField()
+            GridScanField()
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
@@ -788,7 +934,7 @@ struct WelcomeView: View {
                         Text("Welcome to")
                             .font(.system(size: 34, weight: .regular))
                         Text("Oriel")
-                            .font(.custom("Sora", fixedSize: 50).weight(.semibold))
+                            .font(.custom("Space Grotesk", fixedSize: 50).weight(.semibold))
                     }
                     Spacer()
                     OrielLogoMark(size: 62)

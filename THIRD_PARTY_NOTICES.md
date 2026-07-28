@@ -29,12 +29,12 @@ Development and testing may use packages declared under
 are not copied into the lightweight macOS control-center runtime unless they
 are present in the packaged runtime output.
 
-## Sora
+## Space Grotesk
 
-Oriel uses the Sora typeface for its product wordmark.
+Oriel uses the Space Grotesk typeface for its product wordmark.
 
-- Source: https://github.com/google/fonts/tree/main/ofl/sora
+- Source: https://github.com/google/fonts/tree/main/ofl/spacegrotesk
 - License: SIL Open Font License 1.1
-- Copyright: Copyright 2019 The Sora Project Authors
+- Copyright: Copyright 2020 The Space Grotesk Project Authors
 
 The full license text is included in the macOS application bundle.
