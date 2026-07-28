@@ -32,6 +32,8 @@ NODE_URL="https://nodejs.org/dist/${NODE_VERSION}/${NODE_ARCHIVE}"
 NODE_CACHE="$ROOT/build/cache/$NODE_ARCHIVE"
 NODE_DIR="$ROOT/build/cache/node-${NODE_VERSION}-darwin-${NODE_ARCH}"
 
+"$ROOT/scripts/check-architecture.sh"
+
 cd "$ROOT/package/ego-browser"
 npm run build
 
@@ -58,6 +60,12 @@ rm -rf "$APP" "$LEGACY_APP" "$OLDER_LEGACY_APP"
 mkdir -p "$MACOS" "$RUNTIME/bin" "$RUNTIME/browser-runtime" \
   "$RUNTIME/skill" "$RESOURCES/Skill" "$RESOURCES/ThirdParty" "$RESOURCES/Fonts"
 
+SWIFT_SOURCES=("$ROOT"/apps/macos/Sources/**/*.swift(N))
+if (( ${#SWIFT_SOURCES[@]} == 0 )); then
+  echo "No Swift sources found under apps/macos/Sources" >&2
+  exit 1
+fi
+
 swiftc \
   -parse-as-library \
   -O \
@@ -65,12 +73,15 @@ swiftc \
   -framework SwiftUI \
   -framework AppKit \
   -o "$MACOS/Oriel" \
-  "$ROOT/apps/macos/Sources/OrielApp.swift"
+  "${SWIFT_SOURCES[@]}"
 
 cp "$ROOT/apps/macos/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/assets/Oriel.icns" "$RESOURCES/Oriel.icns"
 cp "$ROOT/assets/oriel-logo.svg" "$RESOURCES/OrielLogo.svg"
 cp "$ROOT/assets/fonts/SpaceGrotesk-Variable.ttf" "$RESOURCES/Fonts/SpaceGrotesk-Variable.ttf"
+for localization in "$ROOT"/apps/macos/Resources/*.lproj(N); do
+  cp -R "$localization" "$RESOURCES/"
+done
 cp "$NODE_DIR/bin/node" "$RUNTIME/bin/node"
 cp "$ROOT/host-shim/oriel.mjs" "$RUNTIME/oriel.mjs"
 cp "$ROOT/host-shim/oriel-daemon.mjs" "$RUNTIME/oriel-daemon.mjs"

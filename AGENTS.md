@@ -29,11 +29,18 @@ Task spaces are isolated browsing contexts with an ownership model (`agent` / `u
 - Control handoff: `handOffTaskSpace` / `takeOverTaskSpace` / `waitForAgentControl`.
 
 ## Key Directories
+- `apps/macos/Sources/App/` — app lifecycle and scene entrypoints only.
+- `apps/macos/Sources/Core/` — product state, domain models, local configuration, and localization access.
+- `apps/macos/Sources/Features/` — browser control, Codex integration, diagnostics, control center, and onboarding.
+- `apps/macos/Sources/Shared/` — reusable presentational components with no business actions.
+- `apps/macos/Resources/` — localized English and Simplified Chinese product strings.
+- `host-shim/` — CLI, daemon, RPC, runtime configuration, and CDP host adapter boundary.
 - `package/ego-browser/src/` — runtime, helpers, resolver, drivers, learning subsystem.
 - `package/ego-browser/src/**/*.test.mjs` — tests are colocated with the code (there is no separate `test/` directory).
 - `package/ego-browser/scripts/` — `build.mjs` (esbuild per-file → `dist/src`, rollup bundle → `dist/out/index.js`, copies `skills/ego-browser` → `dist/out/ego-browser`), `validate-site-skills.ts`, `run-e2e.sh`.
 - `skills/ego-browser/` — agent skill package: `SKILL.md` (canonical agent-facing usage guide), `references/install.md`, `scripts/install.sh`.
 - `skills/ego-browser/learnings/` — reusable per-site experience packs (`manifest.json` + `notes/` + `tools/` + `browser-tools/`).
+- `docs/ARCHITECTURE.md` — canonical product-level ownership, localization, and dependency map.
 
 ## Development Commands
 Run from `package/ego-browser/`:

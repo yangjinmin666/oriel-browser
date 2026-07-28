@@ -40,6 +40,9 @@ flowchart LR
     H --> I["Browser profile and settings"]
 ```
 
+The complete ownership map and dependency rules are documented in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 The managed browser uses its own profile under:
 
 ```text
