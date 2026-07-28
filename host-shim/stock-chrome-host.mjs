@@ -131,6 +131,14 @@ export async function createStockChromeHost(options = {}) {
     );
   }
 
+  // "当前页"的唯一判定入口。listTabs 的 active 标记和 snapshot 都必须走这里，
+  // 否则两边会指向不同的标签页——之前 snapshot 固定取 [0]，取到的是启动时那个
+  // about:blank，于是快照拍的是空白页，而 runtime 的点击其实作用在真实页面上。
+  function pickActive(targets) {
+    const real = targets.filter((t) => t.url && t.url !== "about:blank");
+    return real[real.length - 1] ?? targets[targets.length - 1] ?? null;
+  }
+
   const host = {
     onCDPMessage: null,
     onSendCDPMessageError: null,
@@ -154,9 +162,7 @@ export async function createStockChromeHost(options = {}) {
         try { const u = new URL(t.url); origin = u.origin; pathname = u.pathname; href = u.href; } catch {}
         return { targetId: t.targetId, url: t.url, title: t.title, active: false, origin, pathname, href, index };
       });
-      // 真实页面优先于启动时那个 about:blank，否则"当前标签"会指到空白页上。
-      const real = tabs.filter((t) => t.url && t.url !== "about:blank");
-      const chosen = real[real.length - 1] ?? tabs[tabs.length - 1];
+      const chosen = pickActive(tabs);
       if (chosen) chosen.active = true;
       return { tabs };
     },
@@ -175,7 +181,7 @@ export async function createStockChromeHost(options = {}) {
     // ——见 src/browser-runtime.ts 的 browserSnapshotRefsToRefMap。
     async snapshot() {
       const space = spaces.get(activeSpaceId);
-      const [target] = await pageTargets(space?.browserContextId);
+      const target = pickActive(await pageTargets(space?.browserContextId));
       if (!target) throw new Error("当前任务空间里没有页面");
       const sessionId = await attach(target.targetId);
       await cdp("Accessibility.enable", {}, sessionId);

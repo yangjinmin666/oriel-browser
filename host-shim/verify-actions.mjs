@@ -26,7 +26,10 @@ try {
   await host.createTab("data:text/html," + encodeURIComponent(PAGE));
   await sleep(1500);
 
-  const [tab] = (await host.listTabs()).tabs;
+  // 必须用 active 那个标签页，不能用 [0]——[0] 是启动时那个 about:blank，
+  // 对它读写会让所有断言看起来失败，而 runtime 其实操作的是真实页面。
+  const tabs = (await host.listTabs()).tabs;
+  const tab = tabs.find((t) => t.active) ?? tabs[tabs.length - 1];
   const sid = await host.attachTo(tab.targetId);
   const read = async (sel, prop = "textContent") => {
     const r = await host.rawCdp("Runtime.evaluate", {
@@ -73,7 +76,9 @@ try {
     const snap = await observe.snapshotRaw();
     const btn = snap.refs.find((r) => r.role === "button");
     await host.rawCdp("Runtime.evaluate", { expression: `document.getElementById('out').textContent='reset'` }, sid);
-    await pointer.click(`@e${btn.backendNodeId}`);
+    // ref 语法是 @<数字> —— parseRef 只接受 @数字 / ref=数字 / 裸数字，
+    // 上游 CONTRIBUTING 写的 "@eN" 与实现不一致，带 e 会被当成 CSS 选择器。
+    await pointer.click(`@${btn.backendNodeId}`);
     await sleep(400);
     const out = await read("#out");
     check("用快照 ref 点击（语义闭环）", out !== "reset", `ref=${btn.backendNodeId}, out=${out}`);
