@@ -28,6 +28,9 @@ final class AppModel: ObservableObject {
 
     @Published var selectedBrowserId = "chrome"
     @Published var browserConnected = false
+    @Published var daemonRunning = false
+    @Published var daemonClientCount = 0
+    @Published var configurationValid = true
     @Published var cliInstalled = false
     @Published var skillInstalled = false
     @Published var busy = false
@@ -95,24 +98,35 @@ final class AppModel: ObservableObject {
 
     func refresh() {
         Task {
-            browserConnected = await endpointReady()
-            cliInstalled = FileManager.default.isExecutableFile(
-                atPath: FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(".local/bin/\(Brand.cliName)").path
-            )
-            skillInstalled = FileManager.default.fileExists(
-                atPath: FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(
-                        ".codex/skills/\(Brand.skillName)/SKILL.md"
-                    ).path
-            )
-            if browserConnected {
-                message = L10n.text("message.browser.connected")
-            } else if selectedBrowser == nil {
-                message = L10n.text("message.browser.none_detected")
-            } else {
-                message = L10n.text("message.browser.ready")
-            }
+            await refreshStatus()
+        }
+    }
+
+    func refreshStatus() async {
+        let report = await loadDoctorReport()
+        let endpointConnected = await endpointReady()
+        browserConnected = report?.browser.connected ?? endpointConnected
+        daemonRunning = report?.daemon.running ?? false
+        daemonClientCount = report?.daemon.clients ?? 0
+        configurationValid = report?.configuration.valid ?? true
+        cliInstalled = FileManager.default.isExecutableFile(
+            atPath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".local/bin/\(Brand.cliName)").path
+        )
+        skillInstalled = FileManager.default.fileExists(
+            atPath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(
+                    ".codex/skills/\(Brand.skillName)/SKILL.md"
+                ).path
+        )
+        if !configurationValid {
+            message = L10n.text("message.diagnostics.configuration_needs_repair")
+        } else if browserConnected {
+            message = L10n.text("message.browser.connected")
+        } else if selectedBrowser == nil {
+            message = L10n.text("message.browser.none_detected")
+        } else {
+            message = L10n.text("message.browser.ready")
         }
     }
 
@@ -186,5 +200,38 @@ final class AppModel: ObservableObject {
 
     func shellQuote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func loadDoctorReport() async -> DoctorReport? {
+        guard let nodeURL = Bundle.main.url(
+            forResource: "node",
+            withExtension: nil,
+            subdirectory: "Runtime"
+        ),
+            let entryURL = Bundle.main.url(
+                forResource: "oriel",
+                withExtension: "mjs",
+                subdirectory: "Runtime"
+            )
+        else {
+            return nil
+        }
+
+        return await Task.detached {
+            let output = Pipe()
+            let process = Process()
+            process.executableURL = nodeURL
+            process.arguments = [entryURL.path, "--doctor", "--json"]
+            process.standardOutput = output
+            process.standardError = Pipe()
+            do {
+                try process.run()
+                process.waitUntilExit()
+                let data = output.fileHandleForReading.readDataToEndOfFile()
+                return try? JSONDecoder().decode(DoctorReport.self, from: data)
+            } catch {
+                return nil
+            }
+        }.value
     }
 }

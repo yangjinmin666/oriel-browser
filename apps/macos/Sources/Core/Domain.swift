@@ -31,3 +31,29 @@ struct RuntimeConfiguration: Codable {
     let profilePath: String
     let updatedAt: String
 }
+
+struct DoctorReport: Decodable, Sendable {
+    struct Configuration: Decodable, Sendable {
+        let valid: Bool
+        let browserId: String?
+        let browserName: String?
+        let endpoint: String?
+        let error: String?
+    }
+
+    struct Browser: Decodable, Sendable {
+        let connected: Bool
+    }
+
+    struct Daemon: Decodable, Sendable {
+        let running: Bool
+        let pid: Int?
+        let clients: Int?
+    }
+
+    let schemaVersion: Int
+    let status: String
+    let configuration: Configuration
+    let browser: Browser
+    let daemon: Daemon
+}

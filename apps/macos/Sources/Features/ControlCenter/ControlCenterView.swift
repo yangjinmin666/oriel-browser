@@ -158,6 +158,53 @@ struct ControlCenterView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        sectionHeader(
+                            L10n.text("control_center.health.section"),
+                            index: "03"
+                        )
+                        HealthRow(
+                            title: L10n.text("control_center.health.browser"),
+                            detail: model.browserConnected
+                                ? L10n.text("control_center.health.browser.connected")
+                                : L10n.text("control_center.health.browser.disconnected"),
+                            ready: model.browserConnected
+                        )
+                        HealthRow(
+                            title: L10n.text("control_center.health.daemon"),
+                            detail: model.daemonRunning
+                                ? L10n.format("control_center.health.daemon.running", model.daemonClientCount)
+                                : L10n.text("control_center.health.daemon.stopped"),
+                            ready: true
+                        )
+                        HealthRow(
+                            title: L10n.text("control_center.health.configuration"),
+                            detail: model.configurationValid
+                                ? L10n.text("control_center.health.configuration.ready")
+                                : L10n.text("control_center.health.configuration.needs_repair"),
+                            ready: model.configurationValid
+                        )
+
+                        Button {
+                            model.repairConnection()
+                        } label: {
+                            Label(
+                                L10n.text("control_center.health.repair"),
+                                systemImage: "wrench.and.screwdriver"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
+                        .disabled(model.busy)
+
+                        Text(L10n.text("control_center.health.repair_detail"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Spacer()
 
                     HStack {

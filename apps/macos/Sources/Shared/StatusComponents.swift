@@ -112,3 +112,26 @@ struct StatusPill: View {
         )
     }
 }
+
+struct HealthRow: View {
+    let title: String
+    let detail: String
+    let ready: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            StatusDot(ready: ready)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(ready ? L10n.text("health.ready") : L10n.text("health.attention"))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(ready ? Color(red: 0.24, green: 0.52, blue: 0.96) : Color(red: 0.93, green: 0.27, blue: 0.31))
+        }
+    }
+}
