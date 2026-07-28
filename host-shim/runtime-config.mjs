@@ -6,11 +6,24 @@ export const APP_SUPPORT_DIR = join(
   homedir(),
   "Library",
   "Application Support",
+  "ZhiYou",
+);
+
+export const LEGACY_APP_SUPPORT_DIR = join(
+  homedir(),
+  "Library",
+  "Application Support",
   "Ego Anywhere",
 );
 
 export const CONFIG_PATH =
-  process.env.EGO_ANYWHERE_CONFIG || join(APP_SUPPORT_DIR, "config.json");
+  process.env.ZHIYOU_CONFIG ||
+  process.env.EGO_ANYWHERE_CONFIG ||
+  (existsSync(join(APP_SUPPORT_DIR, "config.json"))
+    ? join(APP_SUPPORT_DIR, "config.json")
+    : existsSync(join(LEGACY_APP_SUPPORT_DIR, "config.json"))
+      ? join(LEGACY_APP_SUPPORT_DIR, "config.json")
+      : join(APP_SUPPORT_DIR, "config.json"));
 
 export const DEFAULT_CONFIG = Object.freeze({
   browserId: "chrome",

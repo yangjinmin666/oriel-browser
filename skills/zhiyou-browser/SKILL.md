@@ -1,11 +1,11 @@
 ---
-name: ego-anywhere
-description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium browser through Ego Anywhere. Use for opening pages, interacting with logged-in sites, extracting page data, testing web apps, screenshots, and other browser automation.
+name: zhiyou-browser
+description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium browser through 智游 ZhiYou. Use for opening pages, interacting with logged-in sites, extracting page data, testing web apps, screenshots, and other browser automation.
 ---
 
-# Ego Anywhere
+# 智游 ZhiYou
 
-Ego Anywhere lets Codex control a real Chromium browser without requiring the
+智游 ZhiYou lets Codex control a real Chromium browser without requiring the
 ego lite browser. The macOS control center manages the browser connection and
 keeps login state in a dedicated local browser profile.
 
@@ -14,10 +14,10 @@ keeps login state in a dedicated local browser profile.
 Run the built-in health check:
 
 ```bash
-~/.local/bin/ego-anywhere --doctor
+~/.local/bin/zhiyou --doctor
 ```
 
-If it says the browser is not running, open **Ego Anywhere** and press
+If it says the browser is not running, open **智游 ZhiYou** and press
 **Start browser**. Never ask the user to paste cookies or tokens.
 
 ## Run browser tasks
@@ -25,7 +25,7 @@ If it says the browser is not running, open **Ego Anywhere** and press
 Use heredoc scripts:
 
 ```bash
-~/.local/bin/ego-anywhere nodejs <<'EOF'
+~/.local/bin/zhiyou nodejs <<'EOF'
 const task = await taskSpaces.useOrCreate('inspect page')
 await browser.openOrReuseTab('https://example.com', { wait: true, timeout: 20 })
 console.log(await page.snapshot())

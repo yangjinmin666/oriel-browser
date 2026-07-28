@@ -24,7 +24,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // （macOS 上密钥在钥匙串里）。我们不读、不解密、不落盘任何凭据。
 export const DEFAULT_PROFILE_DIR = join(
   process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
-  "ego-anywhere",
+  "zhiyou-browser",
   "chrome-profile",
 );
 

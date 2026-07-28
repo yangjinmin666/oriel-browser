@@ -1,22 +1,22 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "ego-anywhere",
+  "name": "zhiyou-browser",
   "description": "Use AI agents with a managed Chromium browser",
   "owner": {
-    "name": "Ego Anywhere contributors"
+    "name": "ZhiYou contributors"
   },
   "metadata": {
-    "description": "Ego Anywhere browser integration",
+    "description": "智游 ZhiYou browser integration",
     "version": "0.1.0"
   },
   "plugins": [
     {
-      "name": "ego-anywhere",
+      "name": "zhiyou-browser",
       "version": "0.1.0",
       "description": "Automates browser interactions through Chrome, Tabbit, Edge, or Chromium",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/ego-anywhere"],
+      "skills": ["./skills/zhiyou-browser"],
       "category": "development"
     }
   ]

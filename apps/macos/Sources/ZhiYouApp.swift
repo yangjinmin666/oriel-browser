@@ -2,6 +2,16 @@ import AppKit
 import Foundation
 import SwiftUI
 
+enum Brand {
+    static let displayName = "智游 ZhiYou"
+    static let supportDirectoryName = "ZhiYou"
+    static let legacySupportDirectoryName = "Ego Anywhere"
+    static let cliName = "zhiyou"
+    static let legacyCLIName = "ego-anywhere"
+    static let skillName = "zhiyou-browser"
+    static let legacySkillName = "ego-anywhere"
+}
+
 struct BrowserChoice: Identifiable, Hashable {
     let id: String
     let name: String
@@ -68,7 +78,10 @@ final class AppModel: ObservableObject {
 
     private var supportDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Ego Anywhere", isDirectory: true)
+            .appendingPathComponent(
+                "Library/Application Support/\(Brand.supportDirectoryName)",
+                isDirectory: true
+            )
     }
 
     private var configurationURL: URL {
@@ -76,8 +89,21 @@ final class AppModel: ObservableObject {
     }
 
     init() {
-        let configURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Ego Anywhere/config.json")
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let support = home.appendingPathComponent(
+            "Library/Application Support/\(Brand.supportDirectoryName)",
+            isDirectory: true
+        )
+        let legacySupport = home.appendingPathComponent(
+            "Library/Application Support/\(Brand.legacySupportDirectoryName)",
+            isDirectory: true
+        )
+        if !FileManager.default.fileExists(atPath: support.path),
+           FileManager.default.fileExists(atPath: legacySupport.path) {
+            try? FileManager.default.moveItem(at: legacySupport, to: support)
+        }
+
+        let configURL = support.appendingPathComponent("config.json")
         let savedData = try? Data(contentsOf: configURL)
         let savedConfig = savedData.flatMap {
             try? JSONDecoder().decode(RuntimeConfiguration.self, from: $0)
@@ -94,6 +120,7 @@ final class AppModel: ObservableObject {
         } else if !browsers[0].installed, let first = browsers.first(where: \.installed) {
             selectedBrowserId = first.id
         }
+        _ = try? saveConfiguration()
     }
 
     func refresh() {
@@ -101,11 +128,13 @@ final class AppModel: ObservableObject {
             browserConnected = await endpointReady()
             cliInstalled = FileManager.default.isExecutableFile(
                 atPath: FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(".local/bin/ego-anywhere").path
+                    .appendingPathComponent(".local/bin/\(Brand.cliName)").path
             )
             skillInstalled = FileManager.default.fileExists(
                 atPath: FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(".codex/skills/ego-anywhere/SKILL.md").path
+                    .appendingPathComponent(
+                        ".codex/skills/\(Brand.skillName)/SKILL.md"
+                    ).path
             )
             if browserConnected {
                 message = "浏览器已连接，Codex 可以开始工作。"
@@ -191,7 +220,7 @@ final class AppModel: ObservableObject {
                       let socketAddress = payload["webSocketDebuggerUrl"] as? String,
                       let socketURL = URL(string: socketAddress) else {
                     throw NSError(
-                        domain: "EgoAnywhere",
+                        domain: "ZhiYou",
                         code: 3,
                         userInfo: [NSLocalizedDescriptionKey: "没有读取到浏览器控制端点。"]
                     )
@@ -212,7 +241,7 @@ final class AppModel: ObservableObject {
                     try? await Task.sleep(for: .milliseconds(200))
                 }
                 throw NSError(
-                    domain: "EgoAnywhere",
+                    domain: "ZhiYou",
                     code: 4,
                     userInfo: [NSLocalizedDescriptionKey: "浏览器没有及时停止，可以直接关闭浏览器窗口。"]
                 )
@@ -232,13 +261,13 @@ final class AppModel: ObservableObject {
             }
             let runtime = resources.appendingPathComponent("Runtime", isDirectory: true)
             let node = runtime.appendingPathComponent("bin/node")
-            let entry = runtime.appendingPathComponent("ego-anywhere.mjs")
+            let entry = runtime.appendingPathComponent("zhiyou.mjs")
             guard FileManager.default.isExecutableFile(atPath: node.path),
                   FileManager.default.fileExists(atPath: entry.path) else {
                 throw NSError(
-                    domain: "EgoAnywhere",
+                    domain: "ZhiYou",
                     code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "应用内置运行时不完整，请重新安装 Ego Anywhere。"]
+                    userInfo: [NSLocalizedDescriptionKey: "应用内置运行时不完整，请重新安装智游。"]
                 )
             }
 
@@ -248,24 +277,37 @@ final class AppModel: ObservableObject {
                 at: binDirectory,
                 withIntermediateDirectories: true
             )
-            let launcher = binDirectory.appendingPathComponent("ego-anywhere")
             let script = """
             #!/bin/zsh
             exec \(shellQuote(node.path)) \(shellQuote(entry.path)) "$@"
             """
-            try script.write(to: launcher, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes(
-                [.posixPermissions: 0o755],
-                ofItemAtPath: launcher.path
-            )
+            for commandName in [Brand.cliName, Brand.legacyCLIName] {
+                let launcher = binDirectory.appendingPathComponent(commandName)
+                try script.write(to: launcher, atomically: true, encoding: .utf8)
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o755],
+                    ofItemAtPath: launcher.path
+                )
+            }
 
             let skillSource = resources
                 .appendingPathComponent("Skill", isDirectory: true)
-                .appendingPathComponent("ego-anywhere", isDirectory: true)
+                .appendingPathComponent(Brand.skillName, isDirectory: true)
             let skillDestination = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(".codex/skills/ego-anywhere", isDirectory: true)
+                .appendingPathComponent(
+                    ".codex/skills/\(Brand.skillName)",
+                    isDirectory: true
+                )
+            let legacySkillDestination = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(
+                    ".codex/skills/\(Brand.legacySkillName)",
+                    isDirectory: true
+                )
             if FileManager.default.fileExists(atPath: skillDestination.path) {
                 try FileManager.default.removeItem(at: skillDestination)
+            }
+            if FileManager.default.fileExists(atPath: legacySkillDestination.path) {
+                try FileManager.default.removeItem(at: legacySkillDestination)
             }
             try FileManager.default.createDirectory(
                 at: skillDestination.deletingLastPathComponent(),
@@ -275,7 +317,7 @@ final class AppModel: ObservableObject {
             try saveConfiguration()
             cliInstalled = true
             skillInstalled = true
-            message = "Codex 集成已安装。重新打开 Codex 后即可直接使用。"
+            message = "智游的 Codex 集成已安装。重新打开 Codex 后即可直接使用。"
         } catch {
             lastError = error.localizedDescription
         }
@@ -315,7 +357,7 @@ final class AppModel: ObservableObject {
     private func saveConfiguration() throws -> RuntimeConfiguration {
         guard let browser = selectedBrowser else {
             throw NSError(
-                domain: "EgoAnywhere",
+                domain: "ZhiYou",
                 code: 2,
                 userInfo: [NSLocalizedDescriptionKey: "没有可用浏览器。"]
             )
@@ -398,9 +440,9 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Ego Anywhere")
+                    Text(Brand.displayName)
                         .font(.system(size: 27, weight: .semibold))
-                    Text("让 Codex 使用你选择的浏览器")
+                    Text("AI 浏览器协作台 · 让 Codex 使用你选择的浏览器")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -519,7 +561,7 @@ struct ContentView: View {
 }
 
 @main
-struct EgoAnywhereApp: App {
+struct ZhiYouApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {
@@ -540,7 +582,7 @@ struct EgoAnywhereApp: App {
                 model.refresh()
             }
             Divider()
-            Button("退出 Ego Anywhere") {
+            Button("退出智游") {
                 NSApp.terminate(nil)
             }
         } label: {

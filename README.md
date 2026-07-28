@@ -1,8 +1,8 @@
-# Ego Anywhere
+# 智游 ZhiYou
 
-Use Codex with the Chromium browser you already prefer.
+**AI 浏览器协作台。让 Codex 使用你选择的 Chromium 浏览器。**
 
-Ego Anywhere packages the MIT-licensed `ego-browser` runtime with a lightweight
+智游 ZhiYou packages the MIT-licensed `ego-browser` runtime with a lightweight
 macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
 browser with a persistent local profile, and installs the Codex skill and CLI
 without requiring terminal setup or a separate AI browser.
@@ -28,7 +28,7 @@ The runtime test suite currently contains 299 passing tests.
 
 ```mermaid
 flowchart LR
-    A["Codex"] --> B["ego-anywhere CLI"]
+    A["Codex"] --> B["zhiyou CLI"]
     B --> C["MIT ego-browser runtime"]
     C --> D["Local CDP host"]
     D --> E["Chrome / Tabbit / Edge"]
@@ -39,11 +39,11 @@ flowchart LR
 The managed browser uses its own profile under:
 
 ```text
-~/Library/Application Support/Ego Anywhere/
+~/Library/Application Support/ZhiYou/
 ```
 
 Log in normally inside that browser once. Chromium stores and encrypts the
-login state. Ego Anywhere does not print, export, or copy cookie values.
+login state. ZhiYou does not print, export, or copy cookie values.
 
 ## Build the macOS app
 
@@ -60,7 +60,7 @@ Requirements:
 The app is written to:
 
 ```text
-build/Ego Anywhere.app
+build/智游 ZhiYou.app
 ```
 
 Build a local DMG:
@@ -74,7 +74,7 @@ checksum, and bundles it in the app. End users do not need Node.js installed.
 
 ## First run
 
-1. Open **Ego Anywhere**.
+1. Open **智游 ZhiYou**.
 2. Select Chrome, Tabbit, or Edge.
 3. Press **Start browser**.
 4. Log in to any websites you want to use.
@@ -84,10 +84,11 @@ checksum, and bundles it in the app. End users do not need Node.js installed.
 After that, Codex can run:
 
 ```bash
-ego-anywhere --doctor
+zhiyou --doctor
 ```
 
-and browser tasks through the installed `ego-anywhere` skill.
+and browser tasks through the installed `zhiyou-browser` skill. The legacy
+`ego-anywhere` command remains available as a compatibility alias.
 
 ## Security model
 
@@ -96,7 +97,7 @@ and browser tasks through the installed `ego-anywhere` skill.
   to control it. Stop the browser from the control center when it is not needed.
 - Browser credentials are not printed or committed to this repository.
 - CAPTCHA and platform security challenges must be completed by the user.
-- Site automation must respect platform rules. Ego Anywhere does not promise
+- Site automation must respect platform rules. ZhiYou does not promise
   that bulk messaging, purchases, applications, or other consequential actions
   will pass anti-abuse systems.
 

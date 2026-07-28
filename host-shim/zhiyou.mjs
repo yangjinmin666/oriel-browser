@@ -30,12 +30,12 @@ if (args[0] === "--doctor") {
   const ready = await endpointReady(config.endpoint);
   process.stdout.write(
     [
-      `Ego Anywhere: ${ready ? "ready" : "browser not running"}`,
+      `ZhiYou: ${ready ? "ready" : "browser not running"}`,
       `Browser: ${config.browserName}`,
       `Endpoint: ${config.endpoint}`,
       ready
         ? "Codex can use the browser now."
-        : "Open the Ego Anywhere control center and start the browser.",
+        : "Open the ZhiYou control center and start the browser.",
       "",
     ].join("\n"),
   );

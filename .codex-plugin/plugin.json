@@ -1,18 +1,18 @@
 {
-  "name": "ego-anywhere",
+  "name": "zhiyou-browser",
   "version": "0.1.0",
   "description": "Use Codex with a managed Chrome, Tabbit, Edge, or Chromium browser.",
   "author": {
-    "name": "Ego Anywhere contributors"
+    "name": "ZhiYou contributors"
   },
   "license": "MIT",
   "keywords": ["browser-automation", "ai-agents", "chromium", "codex"],
-  "skills": "./skills/ego-anywhere",
+  "skills": "./skills/zhiyou-browser",
   "interface": {
-    "displayName": "Ego Anywhere",
+    "displayName": "智游 ZhiYou",
     "shortDescription": "Use Codex with your preferred Chromium browser",
     "longDescription": "Navigate websites, fill forms, capture screenshots, extract structured data, and test web apps through a locally managed Chrome, Tabbit, Edge, or Chromium browser.",
-    "developerName": "Ego Anywhere contributors",
+    "developerName": "ZhiYou contributors",
     "category": "Developer Tools",
     "capabilities": [
       "Browser automation",
