@@ -13,20 +13,29 @@
 //   杂项   upgradeBrowser（本实现不负责升级，空转）
 
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 const DEFAULT_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 登录态持久化：用一个固定的 Chrome 配置目录，让 Chrome 自己加密保存 cookie
+// （macOS 上密钥在钥匙串里）。我们不读、不解密、不落盘任何凭据。
+export const DEFAULT_PROFILE_DIR = join(
+  process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+  "ego-anywhere",
+  "chrome-profile",
+);
 
 export async function createStockChromeHost(options = {}) {
   const {
     chromePath = DEFAULT_CHROME,
     headless = true,
     port = 0,
-    userDataDir = mkdtempSync(join(tmpdir(), "ego-anywhere-")),
+    userDataDir = DEFAULT_PROFILE_DIR,
   } = options;
+  mkdirSync(userDataDir, { recursive: true });
 
   const chosenPort = port || 9500 + Math.floor(Number(process.pid) % 400);
   const child = spawn(chromePath, [
@@ -159,10 +168,19 @@ export async function createStockChromeHost(options = {}) {
       return { content: lines.join("\n"), refs };
     },
 
-    async createTaskSpace(name) {
-      const { browserContextId } = await cdp("Target.createBrowserContext", {});
+    // isolated: false（默认）——用 Chrome 的默认区域，登录态由 Chrome 加密持久化，
+    //   重启后仍然记得。任务空间之间共享 cookie。
+    // isolated: true ——用临时 BrowserContext，空间之间完全隔离，但**不持久化**，
+    //   关掉就没了。适合一次性的干净环境。
+    async createTaskSpace(name, opts = {}) {
+      const isolated = opts.isolated === true;
+      const browserContextId = isolated
+        ? (await cdp("Target.createBrowserContext", {})).browserContextId
+        : undefined;
       const id = ++spaceSeq;
-      const space = { id, name: name ?? `space-${id}`, browserContextId, ownership: "agent" };
+      const space = {
+        id, name: name ?? `space-${id}`, browserContextId, isolated, ownership: "agent",
+      };
       spaces.set(id, space);
       activeSpaceId = id;
       return publicSpace(space);
@@ -178,7 +196,15 @@ export async function createStockChromeHost(options = {}) {
 
     async closeTaskSpace(nameOrId) {
       const space = findSpace(nameOrId);
-      await cdp("Target.disposeBrowserContext", { browserContextId: space.browserContextId });
+      if (space.browserContextId) {
+        // 只有隔离空间有自己的 context；默认空间用的是 Chrome 默认区域，不能销毁，
+        // 否则会连带清掉持久化的登录态。
+        await cdp("Target.disposeBrowserContext", { browserContextId: space.browserContextId });
+      } else {
+        for (const tab of await host.listTabs()) {
+          await cdp("Target.closeTarget", { targetId: tab.targetId });
+        }
+      }
       spaces.delete(space.id);
       if (activeSpaceId === space.id) activeSpaceId = null;
       return { done: true };
@@ -212,7 +238,11 @@ export async function createStockChromeHost(options = {}) {
 
     async upgradeBrowser() { return { done: false, skipped: "stock-chrome-host 不负责浏览器升级" }; },
 
-    async close() { try { ws.close(); } catch {} child.kill(); },
+    // 给配套工具（登录、诊断）用的原始 CDP 出口；runtime 自己不走这里。
+    rawCdp: cdp,
+    attachTo: attach,
+
+    async close() { try { ws.close(); } catch {} child.kill(); await sleep(400); },
   };
 
   function findSpace(nameOrId) {
