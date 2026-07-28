@@ -401,9 +401,35 @@ struct StatusDot: View {
 
     var body: some View {
         Circle()
-            .fill(ready ? Color(red: 0.08, green: 0.58, blue: 0.36) : Color.orange)
+            .fill(
+                ready
+                    ? Color(red: 0.24, green: 0.52, blue: 0.96)
+                    : Color(red: 0.93, green: 0.27, blue: 0.31)
+            )
             .frame(width: 8, height: 8)
             .accessibilityLabel(ready ? "已就绪" : "未就绪")
+    }
+}
+
+struct OrielLogoMark: View {
+    let size: CGFloat
+
+    private var image: NSImage {
+        guard let url = Bundle.main.url(forResource: "OrielLogo", withExtension: "svg"),
+              let image = NSImage(contentsOf: url) else {
+            return NSImage(size: NSSize(width: size, height: size))
+        }
+        return image
+    }
+
+    var body: some View {
+        Image(nsImage: image)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.11))
+            .shadow(color: Color.black.opacity(0.12), radius: 3, y: 1)
     }
 }
 
@@ -421,9 +447,9 @@ struct BrowserRow: View {
                     .frame(width: 28, height: 28)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05))
+                            .fill(selected ? Color.black.opacity(0.08) : Color.black.opacity(0.035))
                     )
-                    .foregroundStyle(browser.installed ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(browser.installed ? Color.black : Color.secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(browser.name)
                         .font(.callout.weight(.medium))
@@ -434,7 +460,7 @@ struct BrowserRow: View {
                 Spacer()
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(Color(red: 0.24, green: 0.52, blue: 0.96))
                 }
             }
             .contentShape(Rectangle())
@@ -442,7 +468,7 @@ struct BrowserRow: View {
             .frame(height: 48)
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(selected ? Color.accentColor.opacity(0.07) : Color.clear)
+                    .fill(selected ? Color.black.opacity(0.045) : Color.clear)
             )
         }
         .buttonStyle(.plain)
@@ -465,7 +491,11 @@ struct StatusPill: View {
         .frame(height: 28)
         .background(
             Capsule()
-                .fill(ready ? Color.green.opacity(0.10) : Color.orange.opacity(0.10))
+                .fill(
+                    ready
+                        ? Color(red: 0.24, green: 0.52, blue: 0.96).opacity(0.16)
+                        : Color(red: 0.93, green: 0.27, blue: 0.31).opacity(0.16)
+                )
         )
     }
 }
@@ -477,11 +507,9 @@ struct ControlCenterView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 HStack(spacing: 11) {
-                    Image(systemName: "rectangle.split.3x1.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
+                    OrielLogoMark(size: 34)
                     Text(Brand.displayName)
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.custom("Sora", fixedSize: 24).weight(.semibold))
                 }
                 Spacer()
                 StatusPill(
@@ -536,6 +564,8 @@ struct ControlCenterView: View {
                                     Label("Start", systemImage: "play.fill")
                                 }
                                 .buttonStyle(.borderedProminent)
+                                .tint(.black)
+                                .foregroundStyle(.white)
                                 .disabled(model.busy)
                             }
                         }
@@ -557,8 +587,8 @@ struct ControlCenterView: View {
                                 .font(.system(size: 21))
                                 .foregroundStyle(
                                     model.cliInstalled && model.skillInstalled
-                                        ? Color.green
-                                        : Color.accentColor
+                                        ? Color(red: 0.24, green: 0.52, blue: 0.96)
+                                        : Color(red: 0.93, green: 0.27, blue: 0.31)
                                 )
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(model.cliInstalled && model.skillInstalled
@@ -581,6 +611,8 @@ struct ControlCenterView: View {
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(.black)
+                        .foregroundStyle(.white)
                         .controlSize(.large)
                         .disabled(model.busy)
                     }
@@ -620,7 +652,11 @@ struct ControlCenterView: View {
 
             HStack(spacing: 10) {
                 Image(systemName: model.lastError == nil ? "info.circle" : "exclamationmark.triangle.fill")
-                    .foregroundStyle(model.lastError == nil ? Color.secondary : Color.orange)
+                    .foregroundStyle(
+                        model.lastError == nil
+                            ? Color(red: 0.24, green: 0.52, blue: 0.96)
+                            : Color(red: 0.93, green: 0.27, blue: 0.31)
+                    )
                 Text(model.lastError ?? model.message)
                     .font(.callout)
                     .lineLimit(2)
@@ -633,9 +669,13 @@ struct ControlCenterView: View {
             }
             .padding(.horizontal, 26)
             .frame(minHeight: 58)
-            .background(Color.primary.opacity(0.025))
+            .background(Color.black.opacity(0.025))
         }
         .frame(minWidth: 760, idealWidth: 820, minHeight: 540, idealHeight: 590)
+        .background(Color(red: 0.965, green: 0.965, blue: 0.972))
+        .foregroundStyle(Color.black)
+        .tint(Color.black)
+        .preferredColorScheme(.light)
         .onAppear { model.refresh() }
     }
 
@@ -643,14 +683,14 @@ struct ControlCenterView: View {
         HStack(spacing: 10) {
             Text(index)
                 .font(.caption.monospaced().weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Color.black.opacity(0.48))
             Text(title)
                 .font(.title3.weight(.semibold))
         }
     }
 }
 
-struct WaterField: View {
+struct ParticleField: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             Canvas { context, size in
@@ -660,42 +700,78 @@ struct WaterField: View {
                     background,
                     with: .linearGradient(
                         Gradient(colors: [
-                            Color.white,
-                            Color(red: 0.91, green: 0.96, blue: 0.98),
-                            Color(red: 0.08, green: 0.48, blue: 0.58)
+                            Color(red: 0.985, green: 0.985, blue: 0.990),
+                            Color(red: 0.945, green: 0.945, blue: 0.955),
+                            Color(red: 0.975, green: 0.975, blue: 0.982)
                         ]),
-                        startPoint: CGPoint(x: size.width * 0.5, y: 0),
-                        endPoint: CGPoint(x: size.width * 0.5, y: size.height)
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: size.width, y: size.height)
                     )
                 )
 
-                let colors = [
-                    Color(red: 0.10, green: 0.70, blue: 0.67),
-                    Color(red: 0.08, green: 0.43, blue: 0.67),
-                    Color(red: 0.18, green: 0.25, blue: 0.64)
-                ]
-                for layer in 0..<3 {
-                    var wave = Path()
-                    let layerValue = CGFloat(layer)
-                    let baseline = size.height * (0.54 + layerValue * 0.09)
-                    let amplitude = 18.0 + layerValue * 11.0
-                    wave.move(to: CGPoint(x: 0, y: baseline))
-                    for x in stride(from: CGFloat.zero, through: size.width, by: 5.0) {
-                        let phase = (x / size.width) * .pi * (2.2 + layerValue * 0.4)
-                        let motion = time * (0.34 + layerValue * 0.09)
-                        let y = baseline
-                            + sin(phase + motion) * amplitude
-                            + cos(phase * 0.58 - motion * 0.7) * amplitude * 0.34
-                        wave.addLine(to: CGPoint(x: x, y: y))
+                for index in 0..<96 {
+                    let seed = CGFloat(index)
+                    let speed = 0.010 + CGFloat(index % 7) * 0.0018
+                    let baseX = fractional(sin(seed * 12.9898) * 43_758.5453)
+                    let baseY = fractional(sin((seed + 17) * 78.233) * 12_345.678)
+                    let drift = time * speed
+                    let x = fractional(baseX + drift) * size.width
+                    let currentY = fractional(
+                        baseY
+                            + drift * (0.14 + CGFloat(index % 5) * 0.035)
+                            + sin(time * 0.18 + seed) * 0.018
+                    )
+                    let y = currentY * size.height
+                    let radius = 0.7 + CGFloat(index % 6) * 0.38
+                    let alpha = 0.10 + Double(index % 5) * 0.038
+                    let particle = Path(
+                        ellipseIn: CGRect(
+                            x: x - radius,
+                            y: y - radius,
+                            width: radius * 2,
+                            height: radius * 2
+                        )
+                    )
+                    context.fill(
+                        particle,
+                        with: .color(
+                            Color(
+                                white: 0.02 + Double(index % 4) * 0.055,
+                                opacity: alpha
+                            )
+                        )
+                    )
+
+                    if index % 12 == 0 {
+                        let trail = Path(
+                            roundedRect: CGRect(
+                                x: x - 18,
+                                y: y - 0.45,
+                                width: 18,
+                                height: 0.9
+                            ),
+                            cornerRadius: 0.45
+                        )
+                        context.fill(
+                            trail,
+                            with: .linearGradient(
+                                Gradient(colors: [
+                                    Color.clear,
+                                    Color.black.opacity(0.12)
+                                ]),
+                                startPoint: CGPoint(x: x - 18, y: y),
+                                endPoint: CGPoint(x: x, y: y)
+                            )
+                        )
                     }
-                    wave.addLine(to: CGPoint(x: size.width, y: size.height))
-                    wave.addLine(to: CGPoint(x: 0, y: size.height))
-                    wave.closeSubpath()
-                    context.fill(wave, with: .color(colors[layer].opacity(0.30 + Double(layer) * 0.18)))
                 }
             }
         }
         .ignoresSafeArea()
+    }
+
+    private func fractional(_ value: CGFloat) -> CGFloat {
+        value - floor(value)
     }
 }
 
@@ -704,7 +780,7 @@ struct WelcomeView: View {
 
     var body: some View {
         ZStack {
-            WaterField()
+            ParticleField()
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
@@ -712,19 +788,17 @@ struct WelcomeView: View {
                         Text("Welcome to")
                             .font(.system(size: 34, weight: .regular))
                         Text("Oriel")
-                            .font(.system(size: 48, weight: .semibold))
+                            .font(.custom("Sora", fixedSize: 50).weight(.semibold))
                     }
                     Spacer()
-                    Image(systemName: "rectangle.split.3x1")
-                        .font(.system(size: 34, weight: .light))
-                        .foregroundStyle(.secondary)
+                    OrielLogoMark(size: 62)
                 }
 
                 Spacer()
 
                 Text("A shared view for\nyou and your AI.")
                     .font(.system(size: 30, weight: .regular))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black.opacity(0.88))
 
                 Button(action: continueAction) {
                     HStack {
@@ -734,7 +808,7 @@ struct WelcomeView: View {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 34))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 24)
@@ -742,6 +816,7 @@ struct WelcomeView: View {
             .padding(42)
         }
         .frame(minWidth: 620, idealWidth: 680, minHeight: 700, idealHeight: 760)
+        .preferredColorScheme(.light)
     }
 }
 

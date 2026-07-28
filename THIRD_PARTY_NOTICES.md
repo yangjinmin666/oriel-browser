@@ -28,3 +28,13 @@ Development and testing may use packages declared under
 `package/ego-browser/package.json` and their own license terms. These packages
 are not copied into the lightweight macOS control-center runtime unless they
 are present in the packaged runtime output.
+
+## Sora
+
+Oriel uses the Sora typeface for its product wordmark.
+
+- Source: https://github.com/google/fonts/tree/main/ofl/sora
+- License: SIL Open Font License 1.1
+- Copyright: Copyright 2019 The Sora Project Authors
+
+The full license text is included in the macOS application bundle.

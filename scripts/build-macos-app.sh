@@ -56,7 +56,7 @@ fi
 
 rm -rf "$APP" "$LEGACY_APP" "$OLDER_LEGACY_APP"
 mkdir -p "$MACOS" "$RUNTIME/bin" "$RUNTIME/browser-runtime" \
-  "$RUNTIME/skill" "$RESOURCES/Skill" "$RESOURCES/ThirdParty"
+  "$RUNTIME/skill" "$RESOURCES/Skill" "$RESOURCES/ThirdParty" "$RESOURCES/Fonts"
 
 swiftc \
   -parse-as-library \
@@ -68,6 +68,9 @@ swiftc \
   "$ROOT/apps/macos/Sources/OrielApp.swift"
 
 cp "$ROOT/apps/macos/Info.plist" "$CONTENTS/Info.plist"
+cp "$ROOT/assets/Oriel.icns" "$RESOURCES/Oriel.icns"
+cp "$ROOT/assets/oriel-logo.svg" "$RESOURCES/OrielLogo.svg"
+cp "$ROOT/assets/fonts/Sora-Variable.ttf" "$RESOURCES/Fonts/Sora-Variable.ttf"
 cp "$NODE_DIR/bin/node" "$RUNTIME/bin/node"
 cp "$ROOT/host-shim/oriel.mjs" "$RUNTIME/oriel.mjs"
 cp "$ROOT/host-shim/oriel-daemon.mjs" "$RUNTIME/oriel-daemon.mjs"
@@ -79,6 +82,7 @@ cp -R "$ROOT/skills/ego-browser/." "$RUNTIME/skill/"
 cp -R "$ROOT/skills/oriel-browser" "$RESOURCES/Skill/oriel-browser"
 cp "$ROOT/LICENSE" "$RESOURCES/ThirdParty/ego-lite-LICENSE"
 cp "$NODE_DIR/LICENSE" "$RESOURCES/ThirdParty/Node-LICENSE"
+cp "$ROOT/assets/fonts/Sora-OFL.txt" "$RESOURCES/ThirdParty/Sora-OFL.txt"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$RESOURCES/ThirdParty/THIRD_PARTY_NOTICES.md"
 
 chmod 755 "$MACOS/Oriel" "$RUNTIME/bin/node" \
