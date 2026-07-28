@@ -28,8 +28,15 @@ export const DEFAULT_PROFILE_DIR = join(
   "chrome-profile",
 );
 
+// connectTo: 连接一个**已经在运行**的 Chromium 的调试端点，而不是自己启动。
+//   例：createStockChromeHost({ connectTo: "http://127.0.0.1:53563" })
+// 用途：对付强反爬站点。用户日常浏览器有真实指纹、真实登录态、有的还自带验证码处理，
+//   通过得去；全新的匿名 profile 常常连页面都拿不到（BOSS 直聘会直接踢到安全验证页）。
+// 代价：需要那个浏览器开着调试端口（无认证），且与用户共享浏览器——隔离性打折。
+//   所以这是可选模式，不是默认。
 export async function createStockChromeHost(options = {}) {
   const {
+    connectTo = null,
     chromePath = DEFAULT_CHROME,
     // 默认有头。国内多个站点会检测无头浏览器：知乎在无头下只返回一张空白页
     // （正文 118 字符 vs 有头 4031 字符，2026-07-28 实测）。无头是提速手段，
@@ -38,20 +45,28 @@ export async function createStockChromeHost(options = {}) {
     port = 0,
     userDataDir = DEFAULT_PROFILE_DIR,
   } = options;
-  mkdirSync(userDataDir, { recursive: true });
+  let child = null;
+  let version;
 
-  const chosenPort = port || 9500 + Math.floor(Number(process.pid) % 400);
-  const child = spawn(chromePath, [
-    `--remote-debugging-port=${chosenPort}`,
-    "--remote-debugging-address=127.0.0.1",
-    `--user-data-dir=${userDataDir}`,
-    ...(headless ? ["--headless=new"] : []),
-    "--no-first-run",
-    "--no-default-browser-check",
-    "about:blank",
-  ], { stdio: "ignore" });
-
-  const version = await waitForEndpoint(chosenPort);
+  if (connectTo) {
+    const base = connectTo.replace(/\/$/, "");
+    const res = await fetch(`${base}/json/version`);
+    if (!res.ok) throw new Error(`连不上已运行的浏览器: ${base}`);
+    version = await res.json();
+  } else {
+    mkdirSync(userDataDir, { recursive: true });
+    const chosenPort = port || 9500 + Math.floor(Number(process.pid) % 400);
+    child = spawn(chromePath, [
+      `--remote-debugging-port=${chosenPort}`,
+      "--remote-debugging-address=127.0.0.1",
+      `--user-data-dir=${userDataDir}`,
+      ...(headless ? ["--headless=new"] : []),
+      "--no-first-run",
+      "--no-default-browser-check",
+      "about:blank",
+    ], { stdio: "ignore" });
+    version = await waitForEndpoint(chosenPort);
+  }
   const ws = new WebSocket(version.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
 
@@ -87,6 +102,7 @@ export async function createStockChromeHost(options = {}) {
   }
 
   const sessions = new Map();   // targetId -> sessionId
+  const ownTargets = new Set(); // 我们自己开的标签页；连接模式下只允许关这些
   async function attach(targetId) {
     if (sessions.has(targetId)) return sessions.get(targetId);
     const { sessionId } = await cdp("Target.attachToTarget", { targetId, flatten: true });
@@ -150,6 +166,7 @@ export async function createStockChromeHost(options = {}) {
       const { targetId } = await cdp("Target.createTarget", {
         url, browserContextId: space.browserContextId,
       });
+      ownTargets.add(targetId);
       return { targetId, url };
     },
 
@@ -211,6 +228,13 @@ export async function createStockChromeHost(options = {}) {
         // 只有隔离空间有自己的 context；默认空间用的是 Chrome 默认区域，不能销毁，
         // 否则会连带清掉持久化的登录态。
         await cdp("Target.disposeBrowserContext", { browserContextId: space.browserContextId });
+      } else if (connectTo) {
+        // 连接模式：默认空间就是用户自己的浏览上下文，这里的标签页是**用户的**。
+        // 只关我们自己开的，绝不批量清理。
+        for (const targetId of ownTargets) {
+          await cdp("Target.closeTarget", { targetId }).catch(() => {});
+        }
+        ownTargets.clear();
       } else {
         for (const tab of (await host.listTabs()).tabs) {
           await cdp("Target.closeTarget", { targetId: tab.targetId });
@@ -253,7 +277,11 @@ export async function createStockChromeHost(options = {}) {
     rawCdp: cdp,
     attachTo: attach,
 
-    async close() { try { ws.close(); } catch {} child.kill(); await sleep(400); },
+    // 连接模式下只断开自己，绝不结束浏览器进程——那是用户正在用的浏览器。
+    async close() {
+      try { ws.close(); } catch {}
+      if (child) { child.kill(); await sleep(400); }
+    },
   };
 
   function findSpace(nameOrId) {

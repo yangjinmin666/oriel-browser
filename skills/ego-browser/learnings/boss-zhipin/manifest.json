@@ -1,0 +1,35 @@
+{
+  "id": "boss-zhipin",
+  "name": "BOSS 直聘 Zhipin",
+  "domains": ["zhipin.com", "*.zhipin.com", "www.zhipin.com"],
+  "notes": ["notes/overview.md"],
+  "nodeTools": {
+    "search_jobs": {
+      "description": "Search BOSS Zhipin job listings and extract the cards. Read-only: it never sends a greeting or applies. Requires a headed browser with a logged-in session; an anonymous profile is redirected to an anti-bot security page.",
+      "path": "tools/search-jobs.js",
+      "callable": "searchJobs",
+      "args": {
+        "query": {
+          "type": "string",
+          "required": true,
+          "description": "Job keyword, e.g. 产品经理."
+        },
+        "city": {
+          "type": "string",
+          "required": false,
+          "description": "City code used by zhipin, e.g. 101020100 for Shanghai. Defaults to Shanghai."
+        },
+        "maxJobs": {
+          "type": "integer",
+          "required": false,
+          "description": "How many cards to collect. One page holds 15."
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "Object with {jobs, blocked, hint}. jobs is an array of {name, salary, tags, company, location, url}; salary is null when the page renders '-K'. blocked is true when the anti-bot page was served."
+      }
+    }
+  },
+  "browserTools": {}
+}
