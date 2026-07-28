@@ -35,7 +35,7 @@ try {
 
   await host.takeOverTaskSpace(space.id);
 
-  const [tab] = await host.listTabs();
+  const [tab] = (await host.listTabs()).tabs;
   const sessionId = await host.attachTo(tab.targetId);
   const { cookies } = await host.rawCdp("Network.getCookies", {}, sessionId);
   const host_ = new URL(url).hostname;

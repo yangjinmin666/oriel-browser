@@ -12,7 +12,7 @@ async function round(label, fn) {
     await host.createTaskSpace(label);
     await host.createTab("https://example.com");
     await new Promise((r) => setTimeout(r, 2500));
-    const [tab] = await host.listTabs();
+    const [tab] = (await host.listTabs()).tabs;
     const sessionId = await host.attachTo(tab.targetId);
     return await fn(host, sessionId);
   } finally {
@@ -48,7 +48,7 @@ const isolatedSurvived = await (async () => {
     await host.createTaskSpace("isolated-check", { isolated: true });
     await host.createTab("https://example.com");
     await new Promise((r) => setTimeout(r, 2500));
-    const [tab] = await host.listTabs();
+    const [tab] = (await host.listTabs()).tabs;
     const sessionId = await host.attachTo(tab.targetId);
     const { cookies } = await host.rawCdp("Network.getCookies", {}, sessionId);
     return cookies.some((c) => c.name === MARK);

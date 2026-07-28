@@ -18,7 +18,7 @@ try {
   await host.createTab("https://example.com");
   await sleep(2500);
 
-  const tabs = await host.listTabs();
+  const tabs = (await host.listTabs()).tabs;
   console.log("4. 空间内的标签页:", tabs.map((t) => `${t.title} @ ${t.origin}`).join(", "));
 
   // —— 关键：调它自己的 snapshotRaw，走它自己的 refMap 逻辑 ——
@@ -48,7 +48,7 @@ try {
     console.log("8. 控制权硬停止:", e.message.slice(0, 46));
   }
   await host.takeOverTaskSpace(space.id);
-  console.log("9. takeOver 后恢复:", (await host.listTabs()).length, "个标签页");
+  console.log("9. takeOver 后恢复:", (await host.listTabs()).tabs.length, "个标签页");
 
   console.log("\n结论：MIT runtime 的高层能力在普通 Chrome 上可用。");
 } catch (e) {

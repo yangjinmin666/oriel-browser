@@ -31,7 +31,10 @@ export const DEFAULT_PROFILE_DIR = join(
 export async function createStockChromeHost(options = {}) {
   const {
     chromePath = DEFAULT_CHROME,
-    headless = true,
+    // 默认有头。国内多个站点会检测无头浏览器：知乎在无头下只返回一张空白页
+    // （正文 118 字符 vs 有头 4031 字符，2026-07-28 实测）。无头是提速手段，
+    // 不是安全默认值，需要时显式传 headless: true。
+    headless = false,
     port = 0,
     userDataDir = DEFAULT_PROFILE_DIR,
   } = options;
@@ -124,14 +127,22 @@ export async function createStockChromeHost(options = {}) {
 
     async getBrowserVersion() { return version.Browser; },
 
+    // 注意：宿主必须返回 { tabs: [...] } 这种包了一层的形状，不是裸数组。
+    // 见 src/browser-runtime.ts:117 —— `result?.tabs || result?.targetInfos || []`。
+    // 返回裸数组会让它取不到，报 "no active tab to attach session"。
     async listTabs() {
       const space = spaces.get(activeSpaceId);
       const targets = await pageTargets(space?.browserContextId);
-      return targets.map((t, index) => {
+      const tabs = targets.map((t, index) => {
         let origin = "", pathname = "", href = t.url;
         try { const u = new URL(t.url); origin = u.origin; pathname = u.pathname; href = u.href; } catch {}
-        return { targetId: t.targetId, url: t.url, title: t.title, active: index === 0, origin, pathname, href, index };
+        return { targetId: t.targetId, url: t.url, title: t.title, active: false, origin, pathname, href, index };
       });
+      // 真实页面优先于启动时那个 about:blank，否则"当前标签"会指到空白页上。
+      const real = tabs.filter((t) => t.url && t.url !== "about:blank");
+      const chosen = real[real.length - 1] ?? tabs[tabs.length - 1];
+      if (chosen) chosen.active = true;
+      return { tabs };
     },
 
     async createTab(url = "about:blank") {
@@ -201,7 +212,7 @@ export async function createStockChromeHost(options = {}) {
         // 否则会连带清掉持久化的登录态。
         await cdp("Target.disposeBrowserContext", { browserContextId: space.browserContextId });
       } else {
-        for (const tab of await host.listTabs()) {
+        for (const tab of (await host.listTabs()).tabs) {
           await cdp("Target.closeTarget", { targetId: tab.targetId });
         }
       }

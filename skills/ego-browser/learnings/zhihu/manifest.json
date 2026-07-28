@@ -1,0 +1,30 @@
+{
+  "id": "zhihu",
+  "name": "知乎 Zhihu",
+  "domains": ["zhihu.com", "*.zhihu.com", "www.zhihu.com"],
+  "notes": ["notes/overview.md"],
+  "nodeTools": {
+    "extract_question": {
+      "description": "Read a Zhihu question page and extract the title plus answers. Requires a headed browser: Zhihu serves a blank page to headless Chrome.",
+      "path": "tools/extract-question.js",
+      "callable": "extractQuestion",
+      "args": {
+        "questionUrl": {
+          "type": "string",
+          "required": true,
+          "description": "Full question URL, e.g. https://www.zhihu.com/question/19550225"
+        },
+        "maxAnswers": {
+          "type": "integer",
+          "required": false,
+          "description": "How many answers to collect; the page lazy-loads, so higher values scroll more."
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "Object with {title, answers: string[], blocked} — blocked is true when the anti-bot blank page was served."
+      }
+    }
+  },
+  "browserTools": {}
+}
