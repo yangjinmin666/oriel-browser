@@ -1,6 +1,6 @@
 {
   "name": "zhiyou-browser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Use Codex with a managed Chrome, Tabbit, Edge, or Chromium browser.",
   "author": {
     "name": "ZhiYou contributors"

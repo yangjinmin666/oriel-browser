@@ -7,7 +7,7 @@ macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
 browser with a persistent local profile, and installs the Codex skill and CLI
 without requiring terminal setup or a separate AI browser.
 
-> **Status:** `v0.1.0-alpha`. The core runtime is well tested, but the macOS app
+> **Status:** `v0.2.0-alpha`. The core runtime is well tested, but the macOS app
 > is an early preview and is not yet notarized.
 
 ## What works
@@ -16,13 +16,15 @@ without requiring terminal setup or a separate AI browser.
 - Automatic Chrome, Tabbit, and Edge detection
 - One-click managed browser startup on a localhost-only CDP endpoint
 - Persistent browser login state without copying or exporting cookies
+- Persistent local daemon that reuses task spaces and pages across Codex calls
 - One-click Codex CLI and skill installation
 - Semantic snapshots, refs, navigation, clicks, typing, screenshots, waits, and
   task spaces from the upstream runtime
 - Site notes for GitHub, Zhihu, BOSS Zhipin, and other tested workflows
 
 Chrome and Tabbit have both passed an end-to-end packaged-runtime check.
-The runtime test suite currently contains 299 passing tests.
+The runtime test suite currently contains 299 passing tests, plus 13 host and
+daemon protocol tests.
 
 ## How it works
 
@@ -30,10 +32,12 @@ The runtime test suite currently contains 299 passing tests.
 flowchart LR
     A["Codex"] --> B["zhiyou CLI"]
     B --> C["MIT ego-browser runtime"]
-    C --> D["Local CDP host"]
-    D --> E["Chrome / Tabbit / Edge"]
-    F["macOS control center"] --> D
-    F --> G["Browser profile and settings"]
+    C --> D["Private Unix socket"]
+    D --> E["Persistent ZhiYou daemon"]
+    E --> F["Local CDP host"]
+    F --> G["Chrome / Tabbit / Edge"]
+    H["macOS control center"] --> F
+    H --> I["Browser profile and settings"]
 ```
 
 The managed browser uses its own profile under:
@@ -90,9 +94,17 @@ zhiyou --doctor
 and browser tasks through the installed `zhiyou-browser` skill. The legacy
 `ego-anywhere` command remains available as a compatibility alias.
 
+Inspect or stop the persistent background process:
+
+```bash
+zhiyou --daemon-status
+zhiyou --daemon-stop
+```
+
 ## Security model
 
 - The debugging endpoint is bound to `127.0.0.1`.
+- Daemon RPC uses a user-only Unix socket with `0600` permissions.
 - While the managed browser is running, any process on the same Mac may be able
   to control it. Stop the browser from the control center when it is not needed.
 - Browser credentials are not printed or committed to this repository.
@@ -114,12 +126,12 @@ npm run validate:site-skills
 Host configuration tests:
 
 ```bash
-node --test host-shim/runtime-config.test.mjs
+node --test host-shim/*.test.mjs
 ```
 
 ## Roadmap
 
-- First-run onboarding polish and accessibility review
+- One-button onboarding and clearer daemon diagnostics
 - Signed and notarized Apple Silicon and Intel DMGs
 - Automatic updates
 - Optional connection to an existing browser session

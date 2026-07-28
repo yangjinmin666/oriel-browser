@@ -17,7 +17,8 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const DEFAULT_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const DEFAULT_CHROME =
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 登录态持久化：用一个固定的 Chrome 配置目录，让 Chrome 自己加密保存 cookie
@@ -57,36 +58,64 @@ export async function createStockChromeHost(options = {}) {
   } else {
     mkdirSync(userDataDir, { recursive: true });
     const chosenPort = port || 9500 + Math.floor(Number(process.pid) % 400);
-    child = spawn(chromePath, [
-      `--remote-debugging-port=${chosenPort}`,
-      "--remote-debugging-address=127.0.0.1",
-      `--user-data-dir=${userDataDir}`,
-      ...(headless ? ["--headless=new"] : []),
-      "--no-first-run",
-      "--no-default-browser-check",
-      "about:blank",
-    ], { stdio: "ignore", detached: keepBrowserAlive });
+    child = spawn(
+      chromePath,
+      [
+        `--remote-debugging-port=${chosenPort}`,
+        "--remote-debugging-address=127.0.0.1",
+        `--user-data-dir=${userDataDir}`,
+        ...(headless ? ["--headless=new"] : []),
+        "--no-first-run",
+        "--no-default-browser-check",
+        "about:blank",
+      ],
+      { stdio: "ignore", detached: keepBrowserAlive },
+    );
     if (keepBrowserAlive) child.unref();
     version = await waitForEndpoint(chosenPort);
   }
   const ws = new WebSocket(version.webSocketDebuggerUrl);
-  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+  await new Promise((res, rej) => {
+    ws.onopen = res;
+    ws.onerror = rej;
+  });
+  let resolveClosed;
+  let hostClosed = false;
+  const closed = new Promise((resolve) => {
+    resolveClosed = resolve;
+  });
 
   // runtime 自己的 pending 表走 onCDPMessage；本 shim 内部调用另开一套 id 段，互不干扰。
   let internalId = 900000;
   const internalPending = new Map();
 
   ws.onmessage = (event) => {
-    const raw = typeof event.data === "string" ? event.data : String(event.data);
+    const raw =
+      typeof event.data === "string" ? event.data : String(event.data);
     let parsed;
-    try { parsed = JSON.parse(raw); } catch { parsed = null; }
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
     if (parsed && internalPending.has(parsed.id)) {
       const entry = internalPending.get(parsed.id);
       internalPending.delete(parsed.id);
-      parsed.error ? entry.reject(new Error(parsed.error.message)) : entry.resolve(parsed.result);
+      parsed.error
+        ? entry.reject(new Error(parsed.error.message))
+        : entry.resolve(parsed.result);
       return;
     }
     host.onCDPMessage?.(raw);
+  };
+  ws.onclose = () => {
+    if (hostClosed) return;
+    hostClosed = true;
+    for (const entry of internalPending.values()) {
+      entry.reject(new Error("浏览器连接已关闭"));
+    }
+    internalPending.clear();
+    resolveClosed();
   };
 
   function cdp(method, params = {}, sessionId) {
@@ -97,31 +126,68 @@ export async function createStockChromeHost(options = {}) {
         internalPending.delete(id);
         reject(new Error(`shim CDP timeout: ${method}`));
       }, 30000);
-      const wrap = (fn) => (v) => { clearTimeout(timer); fn(v); };
+      const wrap = (fn) => (v) => {
+        clearTimeout(timer);
+        fn(v);
+      };
       internalPending.set(id, { resolve: wrap(resolve), reject: wrap(reject) });
-      ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+      ws.send(
+        JSON.stringify({
+          id,
+          method,
+          params,
+          ...(sessionId ? { sessionId } : {}),
+        }),
+      );
     });
   }
 
-  const sessions = new Map();   // targetId -> sessionId
+  const sessions = new Map(); // targetId -> sessionId
   const ownTargets = new Set(); // 我们自己开的标签页；连接模式下只允许关这些
   async function attach(targetId) {
     if (sessions.has(targetId)) return sessions.get(targetId);
-    const { sessionId } = await cdp("Target.attachToTarget", { targetId, flatten: true });
+    const { sessionId } = await cdp("Target.attachToTarget", {
+      targetId,
+      flatten: true,
+    });
     sessions.set(targetId, sessionId);
     return sessionId;
   }
 
   // ——— 任务空间：用标准 CDP 的 BrowserContext 做隔离 ———
-  const spaces = new Map();     // id -> { id, name, browserContextId, ownership }
-  let activeSpaceId = null;
+  const spaces = new Map(); // id -> { id, name, browserContextId, ownership }
+  const defaultScope = Symbol("default-scope");
+  const activeSpaceByScope = new Map();
   let spaceSeq = 0;
 
-  function requireActiveSpace() {
-    const space = spaces.get(activeSpaceId);
-    if (!space) throw new Error("没有选中的任务空间，先调用 createTaskSpace/useTaskSpace");
+  function scopeKey(context) {
+    return context?.__zhiyouScopeId ?? defaultScope;
+  }
+
+  function activeSpaceId(context) {
+    return activeSpaceByScope.get(scopeKey(context)) ?? null;
+  }
+
+  function selectSpace(spaceId, context) {
+    activeSpaceByScope.set(scopeKey(context), spaceId);
+  }
+
+  function clearSpaceSelections(spaceId) {
+    for (const [key, selectedId] of activeSpaceByScope) {
+      if (selectedId === spaceId) activeSpaceByScope.delete(key);
+    }
+  }
+
+  function requireActiveSpace(context) {
+    const space = spaces.get(activeSpaceId(context));
+    if (!space)
+      throw new Error(
+        "没有选中的任务空间，先调用 createTaskSpace/useTaskSpace",
+      );
     if (space.ownership !== "agent") {
-      throw new Error("SIDECAR_AGENT_CONTROL_REQUIRED: 用户持有控制权，这是硬停止，不要重试");
+      throw new Error(
+        "SIDECAR_AGENT_CONTROL_REQUIRED: 用户持有控制权，这是硬停止，不要重试",
+      );
     }
     return space;
   }
@@ -129,7 +195,9 @@ export async function createStockChromeHost(options = {}) {
   async function pageTargets(browserContextId) {
     const { targetInfos } = await cdp("Target.getTargets", {});
     return targetInfos.filter(
-      (t) => t.type === "page" && (!browserContextId || t.browserContextId === browserContextId),
+      (t) =>
+        t.type === "page" &&
+        (!browserContextId || t.browserContextId === browserContextId),
     );
   }
 
@@ -147,32 +215,54 @@ export async function createStockChromeHost(options = {}) {
 
     // 整个适配层的核心：字符串进，字符串出。
     sendCDPMessage(payload) {
-      try { ws.send(payload); }
-      catch (error) { host.onSendCDPMessageError?.(String(error?.message ?? error)); }
+      try {
+        ws.send(payload);
+      } catch (error) {
+        host.onSendCDPMessageError?.(String(error?.message ?? error));
+      }
     },
 
-    async getBrowserVersion() { return version.Browser; },
+    async getBrowserVersion() {
+      return version.Browser;
+    },
 
     // 注意：宿主必须返回 { tabs: [...] } 这种包了一层的形状，不是裸数组。
     // 见 src/browser-runtime.ts:117 —— `result?.tabs || result?.targetInfos || []`。
     // 返回裸数组会让它取不到，报 "no active tab to attach session"。
-    async listTabs() {
-      const space = spaces.get(activeSpaceId);
+    async listTabs(context) {
+      const space = spaces.get(activeSpaceId(context));
       const targets = await pageTargets(space?.browserContextId);
       const tabs = targets.map((t, index) => {
-        let origin = "", pathname = "", href = t.url;
-        try { const u = new URL(t.url); origin = u.origin; pathname = u.pathname; href = u.href; } catch {}
-        return { targetId: t.targetId, url: t.url, title: t.title, active: false, origin, pathname, href, index };
+        let origin = "",
+          pathname = "",
+          href = t.url;
+        try {
+          const u = new URL(t.url);
+          origin = u.origin;
+          pathname = u.pathname;
+          href = u.href;
+        } catch {}
+        return {
+          targetId: t.targetId,
+          url: t.url,
+          title: t.title,
+          active: false,
+          origin,
+          pathname,
+          href,
+          index,
+        };
       });
       const chosen = pickActive(tabs);
       if (chosen) chosen.active = true;
       return { tabs };
     },
 
-    async createTab(url = "about:blank") {
-      const space = requireActiveSpace();
+    async createTab(url = "about:blank", context) {
+      const space = requireActiveSpace(context);
       const { targetId } = await cdp("Target.createTarget", {
-        url, browserContextId: space.browserContextId,
+        url,
+        browserContextId: space.browserContextId,
       });
       ownTargets.add(targetId);
       return { targetId, url };
@@ -181,8 +271,8 @@ export async function createStockChromeHost(options = {}) {
     // 快照：ego lite 是浏览器原生实现，这里用标准 CDP 的可访问性树自己拼。
     // 返回 { content, refs }，refs 形状必须是 [{ backendNodeId, role, name }]
     // ——见 src/browser-runtime.ts 的 browserSnapshotRefsToRefMap。
-    async snapshot() {
-      const space = spaces.get(activeSpaceId);
+    async snapshot(_options = {}, context) {
+      const space = spaces.get(activeSpaceId(context));
       const target = pickActive(await pageTargets(space?.browserContextId));
       if (!target) throw new Error("当前任务空间里没有页面");
       const sessionId = await attach(target.targetId);
@@ -194,12 +284,20 @@ export async function createStockChromeHost(options = {}) {
       for (const node of nodes) {
         const role = node.role?.value ?? "";
         const name = (node.name?.value ?? "").trim();
-        if (!role || role === "none" || role === "InlineTextBox" || role === "StaticText") continue;
+        if (
+          !role ||
+          role === "none" ||
+          role === "InlineTextBox" ||
+          role === "StaticText"
+        )
+          continue;
         if (!name && !INTERESTING_ROLES.has(role)) continue;
         const backendNodeId = node.backendDOMNodeId;
         if (backendNodeId === undefined) continue;
         refs.push({ backendNodeId, role, name });
-        lines.push(`- ${role}${name ? ` "${name}"` : ""} [ref=${backendNodeId}]`);
+        lines.push(
+          `- ${role}${name ? ` "${name}"` : ""} [ref=${backendNodeId}]`,
+        );
       }
       return { content: lines.join("\n"), refs };
     },
@@ -208,23 +306,27 @@ export async function createStockChromeHost(options = {}) {
     //   重启后仍然记得。任务空间之间共享 cookie。
     // isolated: true ——用临时 BrowserContext，空间之间完全隔离，但**不持久化**，
     //   关掉就没了。适合一次性的干净环境。
-    async createTaskSpace(name, opts = {}) {
+    async createTaskSpace(name, opts = {}, context) {
       const isolated = opts.isolated === true;
       const browserContextId = isolated
         ? (await cdp("Target.createBrowserContext", {})).browserContextId
         : undefined;
       const id = ++spaceSeq;
       const space = {
-        id, name: name ?? `space-${id}`, browserContextId, isolated, ownership: "agent",
+        id,
+        name: name ?? `space-${id}`,
+        browserContextId,
+        isolated,
+        ownership: "agent",
       };
       spaces.set(id, space);
-      activeSpaceId = id;
+      selectSpace(id, context);
       return publicSpace(space);
     },
 
-    async useTaskSpace(nameOrId) {
+    async useTaskSpace(nameOrId, context) {
       const space = findSpace(nameOrId);
-      activeSpaceId = space.id;
+      selectSpace(space.id, context);
       return publicSpace(space);
     },
 
@@ -232,12 +334,14 @@ export async function createStockChromeHost(options = {}) {
       return { taskSpaces: [...spaces.values()].map(publicSpace) };
     },
 
-    async closeTaskSpace(nameOrId) {
-      const space = findSpace(nameOrId ?? activeSpaceId);
+    async closeTaskSpace(nameOrId, context) {
+      const space = findSpace(nameOrId ?? activeSpaceId(context));
       if (space.browserContextId) {
         // 只有隔离空间有自己的 context；默认空间用的是 Chrome 默认区域，不能销毁，
         // 否则会连带清掉持久化的登录态。
-        await cdp("Target.disposeBrowserContext", { browserContextId: space.browserContextId });
+        await cdp("Target.disposeBrowserContext", {
+          browserContextId: space.browserContextId,
+        });
       } else if (connectTo) {
         // 连接模式：默认空间就是用户自己的浏览上下文，这里的标签页是**用户的**。
         // 只关我们自己开的，绝不批量清理。
@@ -246,57 +350,97 @@ export async function createStockChromeHost(options = {}) {
         }
         ownTargets.clear();
       } else {
-        for (const tab of (await host.listTabs()).tabs) {
+        for (const tab of (await host.listTabs(context)).tabs) {
           await cdp("Target.closeTarget", { targetId: tab.targetId });
         }
       }
       spaces.delete(space.id);
-      if (activeSpaceId === space.id) activeSpaceId = null;
+      clearSpaceSelections(space.id);
       return { done: true };
     },
 
-    async completeTaskSpace(nameOrId, opts = {}) {
-      const space = findSpace(nameOrId ?? activeSpaceId);
-      if (space.ownership === "user" && opts.keep) return { done: false, skipped: "user-owned" };
+    async completeTaskSpace(nameOrId, opts = {}, context) {
+      const space = findSpace(nameOrId ?? activeSpaceId(context));
+      if (space.ownership === "user" && opts.keep)
+        return { done: false, skipped: "user-owned" };
       if (opts.keep) return { done: true };
-      return host.closeTaskSpace(nameOrId);
+      return host.closeTaskSpace(nameOrId, context);
     },
 
     // 控制权：用户持有期间任何操作硬失败，不重试、不自动夺回（见 requireActiveSpace）
-    async handOffTaskSpace(nameOrId) {
-      const space = findSpace(nameOrId ?? activeSpaceId);
-      if (space.ownership === "user") return { done: false, skipped: "user-owned" };
+    async handOffTaskSpace(nameOrId, context) {
+      const space = findSpace(nameOrId ?? activeSpaceId(context));
+      if (space.ownership === "user")
+        return { done: false, skipped: "user-owned" };
       space.ownership = "delegated-to-user";
       return { done: true };
     },
-    async takeOverTaskSpace(nameOrId) {
-      const space = findSpace(nameOrId ?? activeSpaceId);
+    async takeOverTaskSpace(nameOrId, context) {
+      const space = findSpace(nameOrId ?? activeSpaceId(context));
       space.ownership = "agent";
       return { done: true };
     },
-    async claimTaskSpace(nameOrId) {
+    async claimTaskSpace(nameOrId, context) {
       const space = findSpace(nameOrId);
       space.ownership = "agent";
-      activeSpaceId = space.id;
+      selectSpace(space.id, context);
       return publicSpace(space);
     },
 
-    async upgradeBrowser() { return { done: false, skipped: "stock-chrome-host 不负责浏览器升级" }; },
+    async upgradeBrowser() {
+      return { done: false, skipped: "stock-chrome-host 不负责浏览器升级" };
+    },
 
     // 给配套工具（登录、诊断）用的原始 CDP 出口；runtime 自己不走这里。
     rawCdp: cdp,
     attachTo: attach,
+    closed,
+
+    // daemon 为每个 CLI 连接创建独立 scope。任务空间是全局共享的，但“当前选中”
+    // 按连接隔离，避免并行 Codex 任务互相切换对方的活动页面。
+    forScope(scopeId) {
+      const context = { __zhiyouScopeId: scopeId };
+      return {
+        getBrowserVersion: (...args) => host.getBrowserVersion(...args),
+        listTabs: () => host.listTabs(context),
+        createTab: (url) => host.createTab(url, context),
+        snapshot: (options) => host.snapshot(options, context),
+        createTaskSpace: (name, opts) =>
+          host.createTaskSpace(name, opts, context),
+        useTaskSpace: (nameOrId) => host.useTaskSpace(nameOrId, context),
+        listTaskSpaces: (...args) => host.listTaskSpaces(...args),
+        closeTaskSpace: (nameOrId) => host.closeTaskSpace(nameOrId, context),
+        completeTaskSpace: (nameOrId, opts) =>
+          host.completeTaskSpace(nameOrId, opts, context),
+        handOffTaskSpace: (nameOrId) =>
+          host.handOffTaskSpace(nameOrId, context),
+        takeOverTaskSpace: (nameOrId) =>
+          host.takeOverTaskSpace(nameOrId, context),
+        claimTaskSpace: (nameOrId) => host.claimTaskSpace(nameOrId, context),
+        upgradeBrowser: (...args) => host.upgradeBrowser(...args),
+      };
+    },
 
     // 连接模式下只断开自己，绝不结束浏览器进程——那是用户正在用的浏览器。
     async close() {
-      try { ws.close(); } catch {}
-      if (child && !keepBrowserAlive) { child.kill(); await sleep(400); }
+      try {
+        ws.close();
+      } catch {}
+      if (child && !keepBrowserAlive) {
+        child.kill();
+        await sleep(400);
+      }
     },
   };
 
   function findSpace(nameOrId) {
     for (const space of spaces.values()) {
-      if (space.id === Number(nameOrId) || space.name === nameOrId || space.id === nameOrId) return space;
+      if (
+        space.id === Number(nameOrId) ||
+        space.name === nameOrId ||
+        space.id === nameOrId
+      )
+        return space;
     }
     throw new Error(`找不到任务空间: ${nameOrId}`);
   }
@@ -313,8 +457,19 @@ export async function createStockChromeHost(options = {}) {
 }
 
 const INTERESTING_ROLES = new Set([
-  "button", "link", "textbox", "checkbox", "radio", "combobox", "listbox",
-  "option", "tab", "menuitem", "searchbox", "switch", "slider",
+  "button",
+  "link",
+  "textbox",
+  "checkbox",
+  "radio",
+  "combobox",
+  "listbox",
+  "option",
+  "tab",
+  "menuitem",
+  "searchbox",
+  "switch",
+  "slider",
 ]);
 
 async function waitForEndpoint(port) {

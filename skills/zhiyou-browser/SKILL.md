@@ -7,7 +7,8 @@ description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium bro
 
 智游 ZhiYou lets Codex control a real Chromium browser without requiring the
 ego lite browser. The macOS control center manages the browser connection and
-keeps login state in a dedicated local browser profile.
+keeps login state in a dedicated local browser profile. A local daemon preserves
+task spaces and page ownership across independent Codex calls.
 
 ## Before browser work
 
@@ -19,6 +20,12 @@ Run the built-in health check:
 
 If it says the browser is not running, open **智游 ZhiYou** and press
 **Start browser**. Never ask the user to paste cookies or tokens.
+
+The daemon starts automatically on the first browser task. Diagnose it with:
+
+```bash
+~/.local/bin/zhiyou --daemon-status
+```
 
 ## Run browser tasks
 

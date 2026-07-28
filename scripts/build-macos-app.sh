@@ -69,6 +69,8 @@ swiftc \
 cp "$ROOT/apps/macos/Info.plist" "$CONTENTS/Info.plist"
 cp "$NODE_DIR/bin/node" "$RUNTIME/bin/node"
 cp "$ROOT/host-shim/zhiyou.mjs" "$RUNTIME/zhiyou.mjs"
+cp "$ROOT/host-shim/zhiyou-daemon.mjs" "$RUNTIME/zhiyou-daemon.mjs"
+cp "$ROOT/host-shim/daemon-rpc.mjs" "$RUNTIME/daemon-rpc.mjs"
 cp "$ROOT/host-shim/runtime-config.mjs" "$RUNTIME/runtime-config.mjs"
 cp "$ROOT/host-shim/stock-chrome-host.mjs" "$RUNTIME/stock-chrome-host.mjs"
 cp -R "$ROOT/package/ego-browser/dist/src/." "$RUNTIME/browser-runtime/"
@@ -78,7 +80,8 @@ cp "$ROOT/LICENSE" "$RESOURCES/ThirdParty/ego-lite-LICENSE"
 cp "$NODE_DIR/LICENSE" "$RESOURCES/ThirdParty/Node-LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$RESOURCES/ThirdParty/THIRD_PARTY_NOTICES.md"
 
-chmod 755 "$MACOS/ZhiYou" "$RUNTIME/bin/node" "$RUNTIME/zhiyou.mjs"
+chmod 755 "$MACOS/ZhiYou" "$RUNTIME/bin/node" \
+  "$RUNTIME/zhiyou.mjs" "$RUNTIME/zhiyou-daemon.mjs"
 codesign --force --deep --sign - "$APP"
 
 echo "$APP"

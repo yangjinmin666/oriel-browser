@@ -317,7 +317,7 @@ final class AppModel: ObservableObject {
             try saveConfiguration()
             cliInstalled = true
             skillInstalled = true
-            message = "智游的 Codex 集成已安装。重新打开 Codex 后即可直接使用。"
+            message = "智游集成已安装，后台会在首次任务时自动启动。重新打开 Codex 后即可使用。"
         } catch {
             lastError = error.localizedDescription
         }
@@ -330,7 +330,7 @@ final class AppModel: ObservableObject {
             browserConnected = await endpointReady()
             refresh()
             if browserConnected && cliInstalled && skillInstalled {
-                message = "全部检查通过。"
+                message = "使用前检查通过，持久后台会在首次任务时自动启动。"
                 lastError = nil
             } else {
                 lastError = "还有未完成的项目，请按页面顺序处理。"
@@ -496,7 +496,7 @@ struct ContentView: View {
                         }
                     }
 
-                    section("3. 安装 Codex 集成", subtitle: "安装本地命令和 skill，所有浏览数据仍保存在这台 Mac。") {
+                    section("3. 安装 Codex 集成", subtitle: "安装本地命令、skill 和按需后台，所有浏览数据仍保存在这台 Mac。") {
                         HStack {
                             StatusDot(ready: model.cliInstalled && model.skillInstalled)
                             Text(

@@ -25,10 +25,10 @@ jobs:
           cache-dependency-path: package/ego-browser/package-lock.json
       - run: npm ci
         working-directory: package/ego-browser
-      - run: node --test host-shim/runtime-config.test.mjs
+      - run: node --test host-shim/*.test.mjs
       - run: ./scripts/build-macos-app.sh
       - run: ./scripts/package-macos-dmg.sh
       - uses: actions/upload-artifact@v4
         with:
           name: ZhiYou-macOS
-          path: build/ZhiYou-0.1.0-alpha.dmg
+          path: build/ZhiYou-0.2.0-alpha.dmg

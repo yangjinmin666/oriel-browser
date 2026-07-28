@@ -7,12 +7,12 @@
   },
   "metadata": {
     "description": "智游 ZhiYou browser integration",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "zhiyou-browser",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Automates browser interactions through Chrome, Tabbit, Edge, or Chromium",
       "source": "./",
       "strict": false,
