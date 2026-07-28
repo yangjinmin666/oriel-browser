@@ -16,9 +16,13 @@ import { APP_SUPPORT_DIR, loadRuntimeConfig } from "./runtime-config.mjs";
 import { createStockChromeHost } from "./stock-chrome-host.mjs";
 
 export const DAEMON_SOCKET_PATH =
-  process.env.ZHIYOU_DAEMON_SOCKET || join(APP_SUPPORT_DIR, "daemon.sock");
+  process.env.ORIEL_DAEMON_SOCKET ||
+  process.env.ZHIYOU_DAEMON_SOCKET ||
+  join(APP_SUPPORT_DIR, "daemon.sock");
 export const DAEMON_LOCK_PATH =
-  process.env.ZHIYOU_DAEMON_LOCK || join(APP_SUPPORT_DIR, "daemon.lock");
+  process.env.ORIEL_DAEMON_LOCK ||
+  process.env.ZHIYOU_DAEMON_LOCK ||
+  join(APP_SUPPORT_DIR, "daemon.lock");
 
 function processIsAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -89,8 +93,12 @@ async function shutdown(reason, exitCode = 0) {
     await host?.close();
   } catch {}
   releaseDaemonLock();
-  if (reason && process.env.ZHIYOU_DAEMON_VERBOSE === "1") {
-    process.stderr.write(`ZhiYou daemon stopped: ${reason}\n`);
+  if (
+    reason &&
+    (process.env.ORIEL_DAEMON_VERBOSE === "1" ||
+      process.env.ZHIYOU_DAEMON_VERBOSE === "1")
+  ) {
+    process.stderr.write(`Oriel daemon stopped: ${reason}\n`);
   }
   process.exit(exitCode);
 }

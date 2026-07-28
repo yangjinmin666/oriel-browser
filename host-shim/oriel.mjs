@@ -21,11 +21,15 @@ const BUNDLED_SKILL_DIR = join(RUNTIME_DIR, "skill");
 const SKILL_DIR = existsSync(BUNDLED_SKILL_DIR)
   ? BUNDLED_SKILL_DIR
   : join(RUNTIME_DIR, "../skills/ego-browser");
-const DAEMON_ENTRY = join(RUNTIME_DIR, "zhiyou-daemon.mjs");
+const DAEMON_ENTRY = join(RUNTIME_DIR, "oriel-daemon.mjs");
 const DAEMON_SOCKET_PATH =
-  process.env.ZHIYOU_DAEMON_SOCKET || join(APP_SUPPORT_DIR, "daemon.sock");
+  process.env.ORIEL_DAEMON_SOCKET ||
+  process.env.ZHIYOU_DAEMON_SOCKET ||
+  join(APP_SUPPORT_DIR, "daemon.sock");
 const DAEMON_LOG_PATH =
-  process.env.ZHIYOU_DAEMON_LOG || join(APP_SUPPORT_DIR, "daemon.log");
+  process.env.ORIEL_DAEMON_LOG ||
+  process.env.ZHIYOU_DAEMON_LOG ||
+  join(APP_SUPPORT_DIR, "daemon.log");
 const args = process.argv.slice(2);
 if (args[0] === "nodejs") args.shift();
 
@@ -66,8 +70,8 @@ function launchDaemon() {
       stdio: ["ignore", logFd, logFd],
       env: {
         ...process.env,
-        ZHIYOU_CONFIG: CONFIG_PATH,
-        ZHIYOU_DAEMON_SOCKET: DAEMON_SOCKET_PATH,
+        ORIEL_CONFIG: CONFIG_PATH,
+        ORIEL_DAEMON_SOCKET: DAEMON_SOCKET_PATH,
       },
     });
     child.unref();
@@ -91,7 +95,7 @@ async function ensureDaemon() {
     }
   }
   throw new Error(
-    `智游后台没有在 12 秒内启动${lastError ? `: ${lastError.message}` : ""}`,
+    `Oriel 后台没有在 12 秒内启动${lastError ? `: ${lastError.message}` : ""}`,
   );
 }
 
@@ -105,7 +109,7 @@ if (args[0] === "--doctor" || args[0] === "--daemon-status") {
   } catch {}
   process.stdout.write(
     [
-      `ZhiYou: ${ready ? "ready" : "browser not running"}`,
+      `Oriel: ${ready ? "ready" : "browser not running"}`,
       `Browser: ${config.browserName}`,
       `Endpoint: ${config.endpoint}`,
       `Daemon: ${daemonStatus ? `ready (pid ${daemonStatus.pid})` : "not running"}`,
@@ -113,7 +117,7 @@ if (args[0] === "--doctor" || args[0] === "--daemon-status") {
         ? "Codex can reuse persistent browser sessions now."
         : ready
           ? "The browser is ready; the daemon starts automatically on the first task."
-          : "Open the ZhiYou control center and start the browser.",
+          : "Open the Oriel control center and start the browser.",
       "",
     ].join("\n"),
   );
@@ -125,9 +129,9 @@ if (args[0] === "--daemon-stop") {
     const { client } = await connectExistingDaemon();
     await client.daemonRequest("daemon.shutdown");
     await client.close();
-    process.stdout.write("ZhiYou daemon stopped.\n");
+    process.stdout.write("Oriel daemon stopped.\n");
   } catch {
-    process.stdout.write("ZhiYou daemon is not running.\n");
+    process.stdout.write("Oriel daemon is not running.\n");
   }
   process.exit(0);
 }

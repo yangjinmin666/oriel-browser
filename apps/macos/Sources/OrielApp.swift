@@ -3,13 +3,13 @@ import Foundation
 import SwiftUI
 
 enum Brand {
-    static let displayName = "智游 ZhiYou"
-    static let supportDirectoryName = "ZhiYou"
-    static let legacySupportDirectoryName = "Ego Anywhere"
-    static let cliName = "zhiyou"
-    static let legacyCLIName = "ego-anywhere"
-    static let skillName = "zhiyou-browser"
-    static let legacySkillName = "ego-anywhere"
+    static let displayName = "Oriel"
+    static let supportDirectoryName = "Oriel"
+    static let legacySupportDirectoryNames = ["ZhiYou", "Ego Anywhere"]
+    static let cliName = "oriel"
+    static let legacyCLINames = ["zhiyou", "ego-anywhere"]
+    static let skillName = "oriel-browser"
+    static let legacySkillNames = ["zhiyou-browser", "ego-anywhere"]
 }
 
 struct BrowserChoice: Identifiable, Hashable {
@@ -94,13 +94,17 @@ final class AppModel: ObservableObject {
             "Library/Application Support/\(Brand.supportDirectoryName)",
             isDirectory: true
         )
-        let legacySupport = home.appendingPathComponent(
-            "Library/Application Support/\(Brand.legacySupportDirectoryName)",
-            isDirectory: true
-        )
-        if !FileManager.default.fileExists(atPath: support.path),
-           FileManager.default.fileExists(atPath: legacySupport.path) {
-            try? FileManager.default.moveItem(at: legacySupport, to: support)
+        if !FileManager.default.fileExists(atPath: support.path) {
+            for legacyName in Brand.legacySupportDirectoryNames {
+                let legacySupport = home.appendingPathComponent(
+                    "Library/Application Support/\(legacyName)",
+                    isDirectory: true
+                )
+                if FileManager.default.fileExists(atPath: legacySupport.path) {
+                    try? FileManager.default.moveItem(at: legacySupport, to: support)
+                    break
+                }
+            }
         }
 
         let configURL = support.appendingPathComponent("config.json")
@@ -220,7 +224,7 @@ final class AppModel: ObservableObject {
                       let socketAddress = payload["webSocketDebuggerUrl"] as? String,
                       let socketURL = URL(string: socketAddress) else {
                     throw NSError(
-                        domain: "ZhiYou",
+                        domain: "Oriel",
                         code: 3,
                         userInfo: [NSLocalizedDescriptionKey: "没有读取到浏览器控制端点。"]
                     )
@@ -241,7 +245,7 @@ final class AppModel: ObservableObject {
                     try? await Task.sleep(for: .milliseconds(200))
                 }
                 throw NSError(
-                    domain: "ZhiYou",
+                    domain: "Oriel",
                     code: 4,
                     userInfo: [NSLocalizedDescriptionKey: "浏览器没有及时停止，可以直接关闭浏览器窗口。"]
                 )
@@ -261,13 +265,13 @@ final class AppModel: ObservableObject {
             }
             let runtime = resources.appendingPathComponent("Runtime", isDirectory: true)
             let node = runtime.appendingPathComponent("bin/node")
-            let entry = runtime.appendingPathComponent("zhiyou.mjs")
+            let entry = runtime.appendingPathComponent("oriel.mjs")
             guard FileManager.default.isExecutableFile(atPath: node.path),
                   FileManager.default.fileExists(atPath: entry.path) else {
                 throw NSError(
-                    domain: "ZhiYou",
+                    domain: "Oriel",
                     code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "应用内置运行时不完整，请重新安装智游。"]
+                    userInfo: [NSLocalizedDescriptionKey: "应用内置运行时不完整，请重新安装 Oriel。"]
                 )
             }
 
@@ -281,7 +285,7 @@ final class AppModel: ObservableObject {
             #!/bin/zsh
             exec \(shellQuote(node.path)) \(shellQuote(entry.path)) "$@"
             """
-            for commandName in [Brand.cliName, Brand.legacyCLIName] {
+            for commandName in [Brand.cliName] + Brand.legacyCLINames {
                 let launcher = binDirectory.appendingPathComponent(commandName)
                 try script.write(to: launcher, atomically: true, encoding: .utf8)
                 try FileManager.default.setAttributes(
@@ -298,16 +302,18 @@ final class AppModel: ObservableObject {
                     ".codex/skills/\(Brand.skillName)",
                     isDirectory: true
                 )
-            let legacySkillDestination = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(
-                    ".codex/skills/\(Brand.legacySkillName)",
-                    isDirectory: true
-                )
             if FileManager.default.fileExists(atPath: skillDestination.path) {
                 try FileManager.default.removeItem(at: skillDestination)
             }
-            if FileManager.default.fileExists(atPath: legacySkillDestination.path) {
-                try FileManager.default.removeItem(at: legacySkillDestination)
+            for legacySkillName in Brand.legacySkillNames {
+                let legacySkillDestination = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(
+                        ".codex/skills/\(legacySkillName)",
+                        isDirectory: true
+                    )
+                if FileManager.default.fileExists(atPath: legacySkillDestination.path) {
+                    try FileManager.default.removeItem(at: legacySkillDestination)
+                }
             }
             try FileManager.default.createDirectory(
                 at: skillDestination.deletingLastPathComponent(),
@@ -317,7 +323,7 @@ final class AppModel: ObservableObject {
             try saveConfiguration()
             cliInstalled = true
             skillInstalled = true
-            message = "智游集成已安装，后台会在首次任务时自动启动。重新打开 Codex 后即可使用。"
+            message = "Oriel 集成已安装，后台会在首次任务时自动启动。重新打开 Codex 后即可使用。"
         } catch {
             lastError = error.localizedDescription
         }
@@ -357,7 +363,7 @@ final class AppModel: ObservableObject {
     private func saveConfiguration() throws -> RuntimeConfiguration {
         guard let browser = selectedBrowser else {
             throw NSError(
-                domain: "ZhiYou",
+                domain: "Oriel",
                 code: 2,
                 userInfo: [NSLocalizedDescriptionKey: "没有可用浏览器。"]
             )
@@ -395,8 +401,8 @@ struct StatusDot: View {
 
     var body: some View {
         Circle()
-            .fill(ready ? Color.green : Color.orange)
-            .frame(width: 9, height: 9)
+            .fill(ready ? Color(red: 0.08, green: 0.58, blue: 0.36) : Color.orange)
+            .frame(width: 8, height: 8)
             .accessibilityLabel(ready ? "已就绪" : "未就绪")
     }
 }
@@ -411,10 +417,16 @@ struct BrowserRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: browser.symbol)
-                    .frame(width: 22)
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05))
+                    )
                     .foregroundStyle(browser.installed ? Color.accentColor : Color.secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(browser.name)
+                        .font(.callout.weight(.medium))
                     Text(browser.installed ? "已检测到" : "未安装")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -426,39 +438,67 @@ struct BrowserRow: View {
                 }
             }
             .contentShape(Rectangle())
-            .padding(.vertical, 5)
+            .padding(.horizontal, 10)
+            .frame(height: 48)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(selected ? Color.accentColor.opacity(0.07) : Color.clear)
+            )
         }
         .buttonStyle(.plain)
         .disabled(!browser.installed || (selectionLocked && !selected))
     }
 }
 
-struct ContentView: View {
+struct StatusPill: View {
+    let ready: Bool
+    let readyText: String
+    let pendingText: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            StatusDot(ready: ready)
+            Text(ready ? readyText : pendingText)
+                .font(.caption.weight(.medium))
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 28)
+        .background(
+            Capsule()
+                .fill(ready ? Color.green.opacity(0.10) : Color.orange.opacity(0.10))
+        )
+    }
+}
+
+struct ControlCenterView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 11) {
+                    Image(systemName: "rectangle.split.3x1.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
                     Text(Brand.displayName)
-                        .font(.system(size: 27, weight: .semibold))
-                    Text("AI 浏览器协作台 · 让 Codex 使用你选择的浏览器")
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 24, weight: .semibold))
                 }
                 Spacer()
-                HStack(spacing: 7) {
-                    StatusDot(ready: model.browserConnected && model.cliInstalled && model.skillInstalled)
-                    Text(model.browserConnected && model.cliInstalled && model.skillInstalled ? "已就绪" : "配置中")
-                        .font(.callout.weight(.medium))
-                }
+                StatusPill(
+                    ready: model.browserConnected && model.cliInstalled && model.skillInstalled,
+                    readyText: "Ready",
+                    pendingText: "Setup"
+                )
             }
-            .padding(24)
+            .padding(.horizontal, 26)
+            .frame(height: 72)
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    section("1. 选择浏览器", subtitle: "使用独立配置保存登录状态，不读取或导出 Cookie。") {
+            HStack(alignment: .top, spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 26) {
+                        sectionHeader("Browser", index: "01")
                         VStack(spacing: 4) {
                             ForEach(model.browsers) { browser in
                                 BrowserRow(
@@ -469,18 +509,23 @@ struct ContentView: View {
                                 )
                             }
                         }
-                    }
 
-                    section("2. 启动连接", subtitle: "调试端口仅绑定本机。浏览器运行时，本机程序可控制其中页面。") {
-                        HStack {
-                            StatusDot(ready: model.browserConnected)
-                            Text(model.browserConnected ? "浏览器已连接" : "浏览器尚未连接")
+                        Divider()
+
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(model.browserConnected ? "Connected" : "Not connected")
+                                    .font(.headline)
+                                Text(model.browserConnected ? "本机浏览器连接正在运行" : "选择浏览器后启动连接")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Spacer()
                             if model.browserConnected {
                                 Button {
                                     model.stopBrowser()
                                 } label: {
-                                    Label("停止浏览器", systemImage: "stop.fill")
+                                    Label("Stop", systemImage: "stop.fill")
                                 }
                                 .buttonStyle(.bordered)
                                 .disabled(model.busy)
@@ -488,86 +533,237 @@ struct ContentView: View {
                                 Button {
                                     model.startBrowser()
                                 } label: {
-                                    Label("启动浏览器", systemImage: "play.fill")
+                                    Label("Start", systemImage: "play.fill")
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(model.busy)
                             }
                         }
                     }
+                    .padding(26)
+                }
+                .frame(minWidth: 390)
 
-                    section("3. 安装 Codex 集成", subtitle: "安装本地命令、skill 和按需后台，所有浏览数据仍保存在这台 Mac。") {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 24) {
+                    sectionHeader("Codex", index: "02")
+
+                    VStack(alignment: .leading, spacing: 15) {
                         HStack {
-                            StatusDot(ready: model.cliInstalled && model.skillInstalled)
-                            Text(
-                                model.cliInstalled && model.skillInstalled
-                                    ? "Codex 集成已安装"
-                                    : "尚未安装"
-                            )
-                            Spacer()
-                            Button {
-                                model.installCodexIntegration()
-                            } label: {
-                                Label(
-                                    model.cliInstalled && model.skillInstalled ? "重新安装" : "一键安装",
-                                    systemImage: "square.and.arrow.down"
+                            Image(systemName: model.cliInstalled && model.skillInstalled
+                                ? "checkmark.circle.fill"
+                                : "arrow.down.circle")
+                                .font(.system(size: 21))
+                                .foregroundStyle(
+                                    model.cliInstalled && model.skillInstalled
+                                        ? Color.green
+                                        : Color.accentColor
                                 )
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(model.cliInstalled && model.skillInstalled
+                                    ? "Integration installed"
+                                    : "Integration required")
+                                    .font(.headline)
+                                Text("CLI + browser skill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.bordered)
-                            .disabled(model.busy)
                         }
+
+                        Button {
+                            model.installCodexIntegration()
+                        } label: {
+                            Label(
+                                model.cliInstalled && model.skillInstalled ? "Reinstall" : "Install",
+                                systemImage: "square.and.arrow.down"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(model.busy)
                     }
 
-                    HStack(spacing: 10) {
-                        Image(systemName: model.lastError == nil ? "info.circle" : "exclamationmark.triangle")
-                            .foregroundStyle(model.lastError == nil ? Color.blue : Color.orange)
-                        Text(model.lastError ?? model.message)
-                            .font(.callout)
-                            .textSelection(.enabled)
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Local only", systemImage: "lock")
+                        Label("Persistent sessions", systemImage: "arrow.triangle.2.circlepath")
+                        Label("Private task spaces", systemImage: "square.3.layers.3d")
+                    }
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    HStack {
+                        Text("v0.2.0 alpha")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.tertiary)
                         Spacer()
                         Button {
                             model.runHealthCheck()
                         } label: {
                             Image(systemName: "stethoscope")
                         }
-                        .help("重新检查")
+                        .buttonStyle(.borderless)
+                        .help("Run diagnostics")
                         .disabled(model.busy)
                     }
-                    .padding(.vertical, 4)
                 }
-                .padding(24)
+                .padding(26)
+                .frame(width: 310)
             }
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Image(systemName: model.lastError == nil ? "info.circle" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(model.lastError == nil ? Color.secondary : Color.orange)
+                Text(model.lastError ?? model.message)
+                    .font(.callout)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+                Spacer()
+                if model.busy {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+            .padding(.horizontal, 26)
+            .frame(minHeight: 58)
+            .background(Color.primary.opacity(0.025))
         }
-        .frame(minWidth: 620, idealWidth: 680, minHeight: 590, idealHeight: 650)
+        .frame(minWidth: 760, idealWidth: 820, minHeight: 540, idealHeight: 590)
         .onAppear { model.refresh() }
     }
 
-    @ViewBuilder
-    private func section<Content: View>(
-        _ title: String,
-        subtitle: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private func sectionHeader(_ title: String, index: String) -> some View {
+        HStack(spacing: 10) {
+            Text(index)
+                .font(.caption.monospaced().weight(.semibold))
+                .foregroundStyle(Color.accentColor)
             Text(title)
-                .font(.headline)
-            Text(subtitle)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            content()
-                .padding(.top, 2)
+                .font(.title3.weight(.semibold))
         }
     }
 }
 
+struct WaterField: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                let time = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
+                let background = Path(CGRect(origin: .zero, size: size))
+                context.fill(
+                    background,
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            Color.white,
+                            Color(red: 0.91, green: 0.96, blue: 0.98),
+                            Color(red: 0.08, green: 0.48, blue: 0.58)
+                        ]),
+                        startPoint: CGPoint(x: size.width * 0.5, y: 0),
+                        endPoint: CGPoint(x: size.width * 0.5, y: size.height)
+                    )
+                )
+
+                let colors = [
+                    Color(red: 0.10, green: 0.70, blue: 0.67),
+                    Color(red: 0.08, green: 0.43, blue: 0.67),
+                    Color(red: 0.18, green: 0.25, blue: 0.64)
+                ]
+                for layer in 0..<3 {
+                    var wave = Path()
+                    let layerValue = CGFloat(layer)
+                    let baseline = size.height * (0.54 + layerValue * 0.09)
+                    let amplitude = 18.0 + layerValue * 11.0
+                    wave.move(to: CGPoint(x: 0, y: baseline))
+                    for x in stride(from: CGFloat.zero, through: size.width, by: 5.0) {
+                        let phase = (x / size.width) * .pi * (2.2 + layerValue * 0.4)
+                        let motion = time * (0.34 + layerValue * 0.09)
+                        let y = baseline
+                            + sin(phase + motion) * amplitude
+                            + cos(phase * 0.58 - motion * 0.7) * amplitude * 0.34
+                        wave.addLine(to: CGPoint(x: x, y: y))
+                    }
+                    wave.addLine(to: CGPoint(x: size.width, y: size.height))
+                    wave.addLine(to: CGPoint(x: 0, y: size.height))
+                    wave.closeSubpath()
+                    context.fill(wave, with: .color(colors[layer].opacity(0.30 + Double(layer) * 0.18)))
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct WelcomeView: View {
+    let continueAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            WaterField()
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Welcome to")
+                            .font(.system(size: 34, weight: .regular))
+                        Text("Oriel")
+                            .font(.system(size: 48, weight: .semibold))
+                    }
+                    Spacer()
+                    Image(systemName: "rectangle.split.3x1")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text("A shared view for\nyou and your AI.")
+                    .font(.system(size: 30, weight: .regular))
+                    .foregroundStyle(.white)
+
+                Button(action: continueAction) {
+                    HStack {
+                        Text("Get started")
+                            .font(.system(size: 34, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 34))
+                    }
+                    .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 24)
+            }
+            .padding(42)
+        }
+        .frame(minWidth: 620, idealWidth: 680, minHeight: 700, idealHeight: 760)
+    }
+}
+
 @main
-struct ZhiYouApp: App {
+struct OrielApp: App {
     @StateObject private var model = AppModel()
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(model)
+            Group {
+                if hasCompletedOnboarding {
+                    ControlCenterView()
+                        .environmentObject(model)
+                } else {
+                    WelcomeView {
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            hasCompletedOnboarding = true
+                        }
+                    }
+                }
+            }
         }
         .windowStyle(.hiddenTitleBar)
 
@@ -582,7 +778,7 @@ struct ZhiYouApp: App {
                 model.refresh()
             }
             Divider()
-            Button("退出智游") {
+            Button("退出 Oriel") {
                 NSApp.terminate(nil)
             }
         } label: {

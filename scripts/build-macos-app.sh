@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/build/智游 ZhiYou.app"
-LEGACY_APP="$ROOT/build/Ego Anywhere.app"
+APP="$ROOT/build/Oriel.app"
+LEGACY_APP="$ROOT/build/智游 ZhiYou.app"
+OLDER_LEGACY_APP="$ROOT/build/Ego Anywhere.app"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
@@ -53,7 +54,7 @@ if [[ ! -x "$NODE_DIR/bin/node" ]]; then
   tar -xzf "$NODE_CACHE" -C "$ROOT/build/cache"
 fi
 
-rm -rf "$APP" "$LEGACY_APP"
+rm -rf "$APP" "$LEGACY_APP" "$OLDER_LEGACY_APP"
 mkdir -p "$MACOS" "$RUNTIME/bin" "$RUNTIME/browser-runtime" \
   "$RUNTIME/skill" "$RESOURCES/Skill" "$RESOURCES/ThirdParty"
 
@@ -63,25 +64,25 @@ swiftc \
   -target "${SWIFT_ARCH}-apple-macos13.0" \
   -framework SwiftUI \
   -framework AppKit \
-  -o "$MACOS/ZhiYou" \
-  "$ROOT/apps/macos/Sources/ZhiYouApp.swift"
+  -o "$MACOS/Oriel" \
+  "$ROOT/apps/macos/Sources/OrielApp.swift"
 
 cp "$ROOT/apps/macos/Info.plist" "$CONTENTS/Info.plist"
 cp "$NODE_DIR/bin/node" "$RUNTIME/bin/node"
-cp "$ROOT/host-shim/zhiyou.mjs" "$RUNTIME/zhiyou.mjs"
-cp "$ROOT/host-shim/zhiyou-daemon.mjs" "$RUNTIME/zhiyou-daemon.mjs"
+cp "$ROOT/host-shim/oriel.mjs" "$RUNTIME/oriel.mjs"
+cp "$ROOT/host-shim/oriel-daemon.mjs" "$RUNTIME/oriel-daemon.mjs"
 cp "$ROOT/host-shim/daemon-rpc.mjs" "$RUNTIME/daemon-rpc.mjs"
 cp "$ROOT/host-shim/runtime-config.mjs" "$RUNTIME/runtime-config.mjs"
 cp "$ROOT/host-shim/stock-chrome-host.mjs" "$RUNTIME/stock-chrome-host.mjs"
 cp -R "$ROOT/package/ego-browser/dist/src/." "$RUNTIME/browser-runtime/"
 cp -R "$ROOT/skills/ego-browser/." "$RUNTIME/skill/"
-cp -R "$ROOT/skills/zhiyou-browser" "$RESOURCES/Skill/zhiyou-browser"
+cp -R "$ROOT/skills/oriel-browser" "$RESOURCES/Skill/oriel-browser"
 cp "$ROOT/LICENSE" "$RESOURCES/ThirdParty/ego-lite-LICENSE"
 cp "$NODE_DIR/LICENSE" "$RESOURCES/ThirdParty/Node-LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$RESOURCES/ThirdParty/THIRD_PARTY_NOTICES.md"
 
-chmod 755 "$MACOS/ZhiYou" "$RUNTIME/bin/node" \
-  "$RUNTIME/zhiyou.mjs" "$RUNTIME/zhiyou-daemon.mjs"
+chmod 755 "$MACOS/Oriel" "$RUNTIME/bin/node" \
+  "$RUNTIME/oriel.mjs" "$RUNTIME/oriel-daemon.mjs"
 codesign --force --deep --sign - "$APP"
 
 echo "$APP"

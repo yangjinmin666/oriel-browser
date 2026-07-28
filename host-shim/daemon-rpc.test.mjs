@@ -73,7 +73,7 @@ function createFakeHost() {
 }
 
 async function withDaemon(run) {
-  const directory = mkdtempSync(join(tmpdir(), "zhiyou-daemon-test-"));
+  const directory = mkdtempSync(join(tmpdir(), "oriel-daemon-test-"));
   const socketPath = join(directory, "daemon.sock");
   const host = createFakeHost();
   const server = await startDaemonRpcServer({ host, socketPath });

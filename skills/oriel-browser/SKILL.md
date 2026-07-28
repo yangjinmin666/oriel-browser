@@ -1,11 +1,11 @@
 ---
-name: zhiyou-browser
-description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium browser through 智游 ZhiYou. Use for opening pages, interacting with logged-in sites, extracting page data, testing web apps, screenshots, and other browser automation.
+name: oriel-browser
+description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium browser through Oriel. Use for opening pages, interacting with logged-in sites, extracting page data, testing web apps, screenshots, and other browser automation.
 ---
 
-# 智游 ZhiYou
+# Oriel
 
-智游 ZhiYou lets Codex control a real Chromium browser without requiring the
+Oriel lets Codex control a real Chromium browser without requiring the
 ego lite browser. The macOS control center manages the browser connection and
 keeps login state in a dedicated local browser profile. A local daemon preserves
 task spaces and page ownership across independent Codex calls.
@@ -15,16 +15,16 @@ task spaces and page ownership across independent Codex calls.
 Run the built-in health check:
 
 ```bash
-~/.local/bin/zhiyou --doctor
+~/.local/bin/oriel --doctor
 ```
 
-If it says the browser is not running, open **智游 ZhiYou** and press
+If it says the browser is not running, open **Oriel** and press
 **Start browser**. Never ask the user to paste cookies or tokens.
 
 The daemon starts automatically on the first browser task. Diagnose it with:
 
 ```bash
-~/.local/bin/zhiyou --daemon-status
+~/.local/bin/oriel --daemon-status
 ```
 
 ## Run browser tasks
@@ -32,7 +32,7 @@ The daemon starts automatically on the first browser task. Diagnose it with:
 Use heredoc scripts:
 
 ```bash
-~/.local/bin/zhiyou nodejs <<'EOF'
+~/.local/bin/oriel nodejs <<'EOF'
 const task = await taskSpaces.useOrCreate('inspect page')
 await browser.openOrReuseTab('https://example.com', { wait: true, timeout: 20 })
 console.log(await page.snapshot())

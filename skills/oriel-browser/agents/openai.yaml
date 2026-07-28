@@ -1,0 +1,5 @@
+interface:
+  display_name: "Oriel Browser"
+  short_description: "Control authenticated Chromium sessions with Oriel"
+  default_prompt: "Use $oriel-browser to open a website and complete this browser task."
+  brand_color: "#16856B"

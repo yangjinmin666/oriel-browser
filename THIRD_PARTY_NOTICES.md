@@ -2,7 +2,7 @@
 
 ## CitroLabs ego-lite / ego-browser
 
-智游 ZhiYou includes and modifies the open-source `ego-browser` runtime from
+Oriel includes and modifies the open-source `ego-browser` runtime from
 CitroLabs' `ego-lite` repository.
 
 - Source: https://github.com/citrolabs/ego-lite

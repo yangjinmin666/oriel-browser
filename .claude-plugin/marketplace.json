@@ -1,22 +1,22 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "zhiyou-browser",
+  "name": "oriel-browser",
   "description": "Use AI agents with a managed Chromium browser",
   "owner": {
-    "name": "ZhiYou contributors"
+    "name": "Oriel contributors"
   },
   "metadata": {
-    "description": "智游 ZhiYou browser integration",
+    "description": "Oriel browser integration",
     "version": "0.2.0"
   },
   "plugins": [
     {
-      "name": "zhiyou-browser",
+      "name": "oriel-browser",
       "version": "0.2.0",
       "description": "Automates browser interactions through Chrome, Tabbit, Edge, or Chromium",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/zhiyou-browser"],
+      "skills": ["./skills/oriel-browser"],
       "category": "development"
     }
   ]

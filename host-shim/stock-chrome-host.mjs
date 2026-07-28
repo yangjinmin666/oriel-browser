@@ -25,7 +25,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // （macOS 上密钥在钥匙串里）。我们不读、不解密、不落盘任何凭据。
 export const DEFAULT_PROFILE_DIR = join(
   process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
-  "zhiyou-browser",
+  "oriel-browser",
   "chrome-profile",
 );
 
@@ -161,7 +161,7 @@ export async function createStockChromeHost(options = {}) {
   let spaceSeq = 0;
 
   function scopeKey(context) {
-    return context?.__zhiyouScopeId ?? defaultScope;
+    return context?.__orielScopeId ?? defaultScope;
   }
 
   function activeSpaceId(context) {
@@ -399,7 +399,7 @@ export async function createStockChromeHost(options = {}) {
     // daemon 为每个 CLI 连接创建独立 scope。任务空间是全局共享的，但“当前选中”
     // 按连接隔离，避免并行 Codex 任务互相切换对方的活动页面。
     forScope(scopeId) {
-      const context = { __zhiyouScopeId: scopeId };
+      const context = { __orielScopeId: scopeId };
       return {
         getBrowserVersion: (...args) => host.getBrowserVersion(...args),
         listTabs: () => host.listTabs(context),

@@ -11,7 +11,7 @@ import {
 } from "./runtime-config.mjs";
 
 test("uses safe localhost default when no config exists", () => {
-  const path = join(mkdtempSync(join(tmpdir(), "zhiyou-")), "missing.json");
+  const path = join(mkdtempSync(join(tmpdir(), "oriel-")), "missing.json");
   assert.deepEqual(loadRuntimeConfig(path), DEFAULT_CONFIG);
 });
 
@@ -34,7 +34,7 @@ test("rejects non-HTTP debugging endpoints", () => {
 });
 
 test("loads a selected browser without losing secure defaults", () => {
-  const dir = mkdtempSync(join(tmpdir(), "zhiyou-"));
+  const dir = mkdtempSync(join(tmpdir(), "oriel-"));
   const path = join(dir, "config.json");
   writeFileSync(
     path,
@@ -54,7 +54,7 @@ test("loads a selected browser without losing secure defaults", () => {
 });
 
 test("fills endpoint and port defaults for partial configuration", () => {
-  const dir = mkdtempSync(join(tmpdir(), "zhiyou-"));
+  const dir = mkdtempSync(join(tmpdir(), "oriel-"));
   const path = join(dir, "config.json");
   writeFileSync(path, JSON.stringify({ browserId: "chrome" }));
   const config = loadRuntimeConfig(path);

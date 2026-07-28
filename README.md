@@ -1,8 +1,8 @@
-# 智游 ZhiYou
+# Oriel
 
 **AI 浏览器协作台。让 Codex 使用你选择的 Chromium 浏览器。**
 
-智游 ZhiYou packages the MIT-licensed `ego-browser` runtime with a lightweight
+Oriel packages the MIT-licensed `ego-browser` runtime with a lightweight
 macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
 browser with a persistent local profile, and installs the Codex skill and CLI
 without requiring terminal setup or a separate AI browser.
@@ -30,10 +30,10 @@ daemon protocol tests.
 
 ```mermaid
 flowchart LR
-    A["Codex"] --> B["zhiyou CLI"]
+    A["Codex"] --> B["oriel CLI"]
     B --> C["MIT ego-browser runtime"]
     C --> D["Private Unix socket"]
-    D --> E["Persistent ZhiYou daemon"]
+    D --> E["Persistent Oriel daemon"]
     E --> F["Local CDP host"]
     F --> G["Chrome / Tabbit / Edge"]
     H["macOS control center"] --> F
@@ -43,11 +43,11 @@ flowchart LR
 The managed browser uses its own profile under:
 
 ```text
-~/Library/Application Support/ZhiYou/
+~/Library/Application Support/Oriel/
 ```
 
 Log in normally inside that browser once. Chromium stores and encrypts the
-login state. ZhiYou does not print, export, or copy cookie values.
+login state. Oriel does not print, export, or copy cookie values.
 
 ## Build the macOS app
 
@@ -64,7 +64,7 @@ Requirements:
 The app is written to:
 
 ```text
-build/智游 ZhiYou.app
+build/Oriel.app
 ```
 
 Build a local DMG:
@@ -78,7 +78,7 @@ checksum, and bundles it in the app. End users do not need Node.js installed.
 
 ## First run
 
-1. Open **智游 ZhiYou**.
+1. Open **Oriel**.
 2. Select Chrome, Tabbit, or Edge.
 3. Press **Start browser**.
 4. Log in to any websites you want to use.
@@ -88,17 +88,17 @@ checksum, and bundles it in the app. End users do not need Node.js installed.
 After that, Codex can run:
 
 ```bash
-zhiyou --doctor
+oriel --doctor
 ```
 
-and browser tasks through the installed `zhiyou-browser` skill. The legacy
-`ego-anywhere` command remains available as a compatibility alias.
+and browser tasks through the installed `oriel-browser` skill. The legacy
+`zhiyou` and `ego-anywhere` commands remain available as compatibility aliases.
 
 Inspect or stop the persistent background process:
 
 ```bash
-zhiyou --daemon-status
-zhiyou --daemon-stop
+oriel --daemon-status
+oriel --daemon-stop
 ```
 
 ## Security model
@@ -109,7 +109,7 @@ zhiyou --daemon-stop
   to control it. Stop the browser from the control center when it is not needed.
 - Browser credentials are not printed or committed to this repository.
 - CAPTCHA and platform security challenges must be completed by the user.
-- Site automation must respect platform rules. ZhiYou does not promise
+- Site automation must respect platform rules. Oriel does not promise
   that bulk messaging, purchases, applications, or other consequential actions
   will pass anti-abuse systems.
 

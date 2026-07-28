@@ -1,18 +1,18 @@
 {
-  "name": "zhiyou-browser",
+  "name": "oriel-browser",
   "version": "0.2.0",
   "description": "Use Codex with a managed Chrome, Tabbit, Edge, or Chromium browser.",
   "author": {
-    "name": "ZhiYou contributors"
+    "name": "Oriel contributors"
   },
   "license": "MIT",
   "keywords": ["browser-automation", "ai-agents", "chromium", "codex"],
-  "skills": "./skills/zhiyou-browser",
+  "skills": "./skills/oriel-browser",
   "interface": {
-    "displayName": "智游 ZhiYou",
+    "displayName": "Oriel",
     "shortDescription": "Use Codex with your preferred Chromium browser",
     "longDescription": "Navigate websites, fill forms, capture screenshots, extract structured data, and test web apps through a locally managed Chrome, Tabbit, Edge, or Chromium browser.",
-    "developerName": "ZhiYou contributors",
+    "developerName": "Oriel contributors",
     "category": "Developer Tools",
     "capabilities": [
       "Browser automation",

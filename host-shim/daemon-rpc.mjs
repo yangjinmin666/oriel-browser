@@ -171,7 +171,7 @@ export async function startDaemonRpcServer({
                 payload: JSON.stringify({
                   id: payload.id,
                   error: {
-                    message: "CDP session belongs to another ZhiYou client",
+                    message: "CDP session belongs to another Oriel client",
                   },
                 }),
               });
@@ -283,7 +283,7 @@ export async function connectDaemonRpc({
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       socket.destroy();
-      reject(new Error("连接智游后台超时"));
+      reject(new Error("连接 Oriel 后台超时"));
     }, connectTimeoutMs);
     const done = (fn) => (value) => {
       clearTimeout(timer);
@@ -314,17 +314,17 @@ export async function connectDaemonRpc({
     onSendCDPMessageError: null,
 
     sendCDPMessage(payload) {
-      if (closed) throw new Error("智游后台连接已关闭");
+      if (closed) throw new Error("Oriel 后台连接已关闭");
       writeMessage(socket, { type: "cdp-send", payload });
     },
 
     daemonRequest(method, ...args) {
-      if (closed) return Promise.reject(new Error("智游后台连接已关闭"));
+      if (closed) return Promise.reject(new Error("Oriel 后台连接已关闭"));
       const id = ++requestId;
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id);
-          reject(new Error(`智游后台请求超时: ${method}`));
+          reject(new Error(`Oriel 后台请求超时: ${method}`));
         }, rpcTimeoutMs);
         pending.set(id, { resolve, reject, timer });
         writeMessage(socket, { type: "rpc", id, method, args });
@@ -335,7 +335,7 @@ export async function connectDaemonRpc({
       if (closed) return;
       closed = true;
       socket.end();
-      rejectPending(new Error("智游后台连接已关闭"));
+      rejectPending(new Error("Oriel 后台连接已关闭"));
     },
   };
 
@@ -361,7 +361,7 @@ export async function connectDaemonRpc({
       pending.delete(message.id);
       clearTimeout(entry.timer);
       if (message.type === "rpc-error") {
-        const error = new Error(message.error?.message || "智游后台请求失败");
+        const error = new Error(message.error?.message || "Oriel 后台请求失败");
         if (message.error?.code) error.code = message.error.code;
         entry.reject(error);
       } else {
@@ -376,7 +376,7 @@ export async function connectDaemonRpc({
   socket.on("close", () => {
     if (closed) return;
     closed = true;
-    rejectPending(new Error("智游后台连接意外关闭"));
+    rejectPending(new Error("Oriel 后台连接意外关闭"));
   });
   socket.on("error", (error) => {
     if (!closed) rejectPending(error);
