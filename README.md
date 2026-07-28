@@ -1,140 +1,136 @@
-<div align="center">
+# Ego Anywhere
 
-<img src="docs/assets/banner.png" alt="ego lite" width="100%" />
+Use Codex with the Chromium browser you already prefer.
 
-**The fastest browser for AI agents to run browser automation**
+Ego Anywhere packages the MIT-licensed `ego-browser` runtime with a lightweight
+macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
+browser with a persistent local profile, and installs the Codex skill and CLI
+without requiring terminal setup or a separate AI browser.
 
-<a href="https://trendshift.io/repositories/42334?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-42334" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/42334" alt="citrolabs%2Fego-lite | Trendshift" width="250" height="55"/></a>
+> **Status:** `v0.1.0-alpha`. The core runtime is well tested, but the macOS app
+> is an early preview and is not yet notarized.
 
-<p>
-  <a href="https://cdn.ego.app/channel/github_github_referral/setup/macos/arm64/egolite.dmg"><img src="https://img.shields.io/badge/Download-Apple%20Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for Apple Silicon" /></a>
-  <a href="https://cdn.ego.app/channel/github_github_referral/setup/macos/x64/egolite.dmg"><img src="https://img.shields.io/badge/Download-Intel-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for Intel" /></a>
-  <a href="https://discord.gg/5eGZVvHbTq"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" /></a>
-  <a href="https://x.com/ego_agent"><img src="https://img.shields.io/badge/Follow-%40ego__agent-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow @ego_agent on X" /></a>
-  <a href="https://lite.ego.app/document/"><img src="https://img.shields.io/badge/Docs-lite.ego.app-1E90FF?style=for-the-badge&logo=gitbook&logoColor=white" alt="Docs" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-3DA639?style=for-the-badge" alt="License MIT" /></a>
-</p>
+## What works
 
-</div>
+- Native macOS control center and menu-bar status
+- Automatic Chrome, Tabbit, and Edge detection
+- One-click managed browser startup on a localhost-only CDP endpoint
+- Persistent browser login state without copying or exporting cookies
+- One-click Codex CLI and skill installation
+- Semantic snapshots, refs, navigation, clicks, typing, screenshots, waits, and
+  task spaces from the upstream runtime
+- Site notes for GitHub, Zhihu, BOSS Zhipin, and other tested workflows
 
-ego (lite) is a browser where you and your AI agents work in parallel. Your agents run multiple browser tasks in their own Spaces while your tabs stay yours, and tasks complete faster on fewer tokens.
+Chrome and Tabbit have both passed an end-to-end packaged-runtime check.
+The runtime test suite currently contains 299 passing tests.
 
-Existing tools like browser-use and agent-browser are browser automation frameworks: they need a separate browser to drive, logins never carry cleanly, and you and the agent end up fighting for the same tabs. ego lite is one browser designed from the start for the two of you to share. No extra setup, and the agent can always reach your real logins and tabs through `ego-browser`.
+## How it works
 
-## Demo
+```mermaid
+flowchart LR
+    A["Codex"] --> B["ego-anywhere CLI"]
+    B --> C["MIT ego-browser runtime"]
+    C --> D["Local CDP host"]
+    D --> E["Chrome / Tabbit / Edge"]
+    F["macOS control center"] --> D
+    F --> G["Browser profile and settings"]
+```
 
-https://github.com/user-attachments/assets/ffe7954b-58ee-411e-b35d-ec30c58a08bc
+The managed browser uses its own profile under:
 
-## Quick Start
+```text
+~/Library/Application Support/Ego Anywhere/
+```
 
-ego lite runs on macOS today. Windows and Linux are on the [roadmap](https://lite.ego.app/roadmap).
+Log in normally inside that browser once. Chromium stores and encrypts the
+login state. Ego Anywhere does not print, export, or copy cookie values.
 
-### 1. Install
+## Build the macOS app
 
-Pick whichever fits your flow.
+Requirements:
 
-**1.1 Download the macOS app**
-
-<a href="https://cdn.ego.app/channel/github_github_referral/setup/macos/arm64/egolite.dmg"><img src="https://img.shields.io/badge/⬇%20Apple%20Silicon-.dmg-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download ego lite for Apple Silicon" /></a>
-<a href="https://cdn.ego.app/channel/github_github_referral/setup/macos/x64/egolite.dmg"><img src="https://img.shields.io/badge/⬇%20Intel-.dmg-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download ego lite for Intel" /></a>
-
-Click to download, then open it to install. Either way, ego lite adds the `ego-browser` skill to every agent's skills directory on your machine.
-
-**1.2 Add the skill with npx**
-
-Install just the `ego-browser` skill:
+- macOS 13 or newer
+- Xcode Command Line Tools
+- npm
 
 ```bash
-npx skills add citrolabs/ego-lite
+./scripts/build-macos-app.sh
 ```
 
-The first time your agent runs a browser task, it walks you through installing the ego lite app.
+The app is written to:
 
-**1.3 Let your agent set it up**
-
-Paste this into your agent:
-
-```
-Set up ego lite for me: https://github.com/citrolabs/ego-lite
-
-Read `skills/ego-browser/references/install.md` and follow the steps to install ego lite.
+```text
+build/Ego Anywhere.app
 ```
 
-On first launch, ego lite asks one question, whether to migrate your Chrome data. Say yes and your agent inherits your existing logins, cookies, extensions, and bookmarks.
+Build a local DMG:
 
-### 2. Run your first task
-
-In your agent CLI, type `/ego-browser` followed by a space, then describe what you want in plain language:
-
-```
-ego-browser follow @ego_agent on x.com for me
+```bash
+./scripts/package-macos-dmg.sh
 ```
 
-The agent picks up the `ego-browser` skill, opens the page in its own Space, reads a Snapshot, acts on the page, and reports back, all while your own tabs stay untouched.
+The build downloads a pinned official Node.js runtime, verifies its SHA-256
+checksum, and bundles it in the app. End users do not need Node.js installed.
 
-Your browsing data stays on your device. ego lite only records whether you opted into Chrome migration during setup.
+## First run
 
-## Highlight of ego lite
+1. Open **Ego Anywhere**.
+2. Select Chrome, Tabbit, or Edge.
+3. Press **Start browser**.
+4. Log in to any websites you want to use.
+5. Press **One-click install** under Codex integration.
+6. Restart Codex.
 
-| Feature | What it does |
-|---|---|
-| **Code base, not CLI base, for faster runs with fewer tokens on complex tasks** | The capabilities ego lite exposes to the agent are wrapped as JavaScript functions the agent calls directly. The agent gets to do what it does best: write code, composing a multi-step task into a single output instead of getting stuck in a "call two commands, look at the result, call two more commands" loop. Compared to the conventional CLI approach, complex workflows finish up to 2.5× faster with higher task success rates and far fewer tool calls per task. |
-| **A dedicated Space for every agent** | ego lite gives each agent its own fully isolated Space. You browse up front, your agent works in the background, and they don't get in each other's way. You can see which Space has an agent running at any moment, and take it over or stop it whenever you want. |
-| **Your agents multitask in Spaces, parallel workspaces inside the same browser** | Each Space gets its own AI agent or its own task, all running at the same time. Claude Code enriching 10 leads in 10 parallel Spaces. Codex scraping 5 competitor sites in 5 more. They don't collide or steal your tabs. Your mouse stays where you left it. |
-| **The strongest page Snapshot on the market** | Thanks to kernel-level customization, ego lite produces the highest-quality page snapshots, the view text models rely on to "see" and act on a webpage. It reliably handles tough cases like deeply nested iframes, exactly where other approaches consistently break down. |
-| **Any agent can drive it through `ego-browser`** | `ego-browser` is the connection layer between any agent CLI (Claude Code, Codex, Cursor, or a custom one) and ego lite. It exposes the browser as a set of in-page JavaScript tools: snapshot, fill, click, wait, navigate, capture. The agent writes a JavaScript snippet calling those tools, and `ego-browser` runs it on the page in one pass. |
-| **Experience accumulation that makes your agent faster the more you use it** *(coming soon)* | Most of an agent's time on browser tasks goes to trial and error. ego lite's official Skill distills every successful action into reusable tools and workflows, so similar tasks down the line run up to 5x faster. |
+After that, Codex can run:
 
-## ego lite vs existing products
+```bash
+ego-anywhere --doctor
+```
 
-Most tools can automate a browser. The real questions are what browser the agent gets, whether you can keep working at the same time, and whether the tool is built for the agent you already use or a built-in one.
+and browser tasks through the installed `ego-anywhere` skill.
 
-| Capability | ego lite | Browser-Use | agent-browser (Vercel) | ChatGPT Atlas | Perplexity Comet |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Multitask in parallel | ✓ | — | — | — | — |
-| Reusable skills | ✓ | — | — | — | — |
-| Inherits Chrome's data | ✓ | — | — | ✓ | ✓ |
-| Same browser, separate workspace | ✓ | — | — | — | — |
-| Compressed semantic input | ✓ | — | ✓ | — | — |
-| Controllable by external agents | ✓ | ✓ | ✓ | — | — |
-| Data stored locally | ✓ | ✓ | ✓ | — | — |
-| No login friction | ✓ | — | — | ✓ | ✓ |
-| Daily-use browser | ✓ | — | — | ✓ | ✓ |
-| Free | ✓ | ✓ | ✓ | — | — |
+## Security model
 
-Two other categories try to solve the same problem. Browser automation frameworks like Browser-Use and Vercel's agent-browser are libraries the agent calls; they ship no browser of their own, so they need a separate one to drive and your logins rarely carry cleanly. AI browsers like ChatGPT Atlas and Perplexity Comet ship a built-in agent, and only that agent can drive the browser. ego lite is one browser, designed from the start for you and any agent you bring to share.
+- The debugging endpoint is bound to `127.0.0.1`.
+- While the managed browser is running, any process on the same Mac may be able
+  to control it. Stop the browser from the control center when it is not needed.
+- Browser credentials are not printed or committed to this repository.
+- CAPTCHA and platform security challenges must be completed by the user.
+- Site automation must respect platform rules. Ego Anywhere does not promise
+  that bulk messaging, purchases, applications, or other consequential actions
+  will pass anti-abuse systems.
 
+## Development
 
-## Benchmarks
+Runtime tests:
 
-We benchmarked ego lite against Vercel's agent-browser on four complex browser automation tasks. ego lite finished each task up to 2.5× faster, with substantially fewer tokens. The harder the task, the bigger the gap. Check the comparison.
+```bash
+cd package/ego-browser
+npm test
+npm run validate:site-skills
+```
 
-<div align="center">
+Host configuration tests:
 
-<img src="docs/assets/ego-vs-agent-benchmark.png" alt="ego lite vs agent-browser, speed and cost across four tasks" width="100%" />
+```bash
+node --test host-shim/runtime-config.test.mjs
+```
 
-</div>
+## Roadmap
 
-## Docs
+- First-run onboarding polish and accessibility review
+- Signed and notarized Apple Silicon and Intel DMGs
+- Automatic updates
+- Optional connection to an existing browser session
+- Windows packaging
+- More tested site packs
 
-Tutorials, the full tool reference, and integration guides live at [lite.ego.app/document/](https://lite.ego.app/document/).
+## Upstream and license
 
-## Community
+This repository is derived from
+[CitroLabs/ego-lite](https://github.com/citrolabs/ego-lite). Its open-source
+`ego-browser` runtime is used under the MIT License. The original CitroLabs
+copyright and license notice are preserved.
 
-- [Discord](https://discord.gg/5eGZVvHbTq), questions, setup help, and skill sharing
-- [GitHub Discussions](https://github.com/citrolabs/ego-lite/discussions), ideas and longer threads
-- [X/Twitter](https://x.com/ego_agent), updates and releases
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=citrolabs%2Fego-lite&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=citrolabs/ego-lite&type=date&theme=dark&legend=top-left&sealed_token=REc3U13uyXA_SL88c2BU0N5DOPw40Uiufp-RaA8pQS-JIMVaaxcGBjHmFV3Vwn9GMMIiL5e40DXSqHNcDjtXItvqvpMr013AaU6OkphU5o60GjasXVoXTQRR4TkWQSCPrPIxmKHehNll1TAsdoQ8rD3wPyRaj-Z_iHXqDDWf9b0gSWHxkyYoMUj6yWxY" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=citrolabs/ego-lite&type=date&legend=top-left&sealed_token=REc3U13uyXA_SL88c2BU0N5DOPw40Uiufp-RaA8pQS-JIMVaaxcGBjHmFV3Vwn9GMMIiL5e40DXSqHNcDjtXItvqvpMr013AaU6OkphU5o60GjasXVoXTQRR4TkWQSCPrPIxmKHehNll1TAsdoQ8rD3wPyRaj-Z_iHXqDDWf9b0gSWHxkyYoMUj6yWxY" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=citrolabs/ego-lite&type=date&legend=top-left&sealed_token=REc3U13uyXA_SL88c2BU0N5DOPw40Uiufp-RaA8pQS-JIMVaaxcGBjHmFV3Vwn9GMMIiL5e40DXSqHNcDjtXItvqvpMr013AaU6OkphU5o60GjasXVoXTQRR4TkWQSCPrPIxmKHehNll1TAsdoQ8rD3wPyRaj-Z_iHXqDDWf9b0gSWHxkyYoMUj6yWxY" />
- </picture>
-</a>
-
-## License
-
-The contents of this repository are released under the [MIT License](LICENSE). The ego lite browser is a separate, free download.
+See [LICENSE](LICENSE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

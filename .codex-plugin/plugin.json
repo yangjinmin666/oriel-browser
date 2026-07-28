@@ -1,22 +1,18 @@
 {
-  "name": "ego-lite",
-  "version": "1.2.5",
-  "description": "Browser automation for AI agents through ego lite.",
+  "name": "ego-anywhere",
+  "version": "0.1.0",
+  "description": "Use Codex with a managed Chrome, Tabbit, Edge, or Chromium browser.",
   "author": {
-    "name": "CitroLabs",
-    "email": "contact@citrolabs.ai",
-    "url": "https://github.com/citrolabs"
+    "name": "Ego Anywhere contributors"
   },
-  "homepage": "https://lite.ego.app/document/",
-  "repository": "https://github.com/citrolabs/ego-lite",
   "license": "MIT",
-  "keywords": ["browser-automation", "ai-agents", "ego-browser"],
-  "skills": "./skills/",
+  "keywords": ["browser-automation", "ai-agents", "chromium", "codex"],
+  "skills": "./skills/ego-anywhere",
   "interface": {
-    "displayName": "ego-browser",
-    "shortDescription": "Automate logged-in web tasks",
-    "longDescription": "Use Codex to navigate websites, fill forms, capture screenshots, extract structured data, and test web apps in isolated ego lite task spaces.",
-    "developerName": "CitroLabs",
+    "displayName": "Ego Anywhere",
+    "shortDescription": "Use Codex with your preferred Chromium browser",
+    "longDescription": "Navigate websites, fill forms, capture screenshots, extract structured data, and test web apps through a locally managed Chrome, Tabbit, Edge, or Chromium browser.",
+    "developerName": "Ego Anywhere contributors",
     "category": "Developer Tools",
     "capabilities": [
       "Browser automation",
@@ -29,8 +25,6 @@
       "Test this web app and report any usability issues.",
       "Extract structured data from this page."
     ],
-    "brandColor": "#1E90FF",
-    "composerIcon": "./assets/composer-icon.png",
-    "logo": "./assets/logo.png"
+    "brandColor": "#16856B"
   }
 }

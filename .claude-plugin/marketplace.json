@@ -1,23 +1,22 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "ego-agent-skills",
-  "description": "Browser automation for AI agents",
+  "name": "ego-anywhere",
+  "description": "Use AI agents with a managed Chromium browser",
   "owner": {
-    "name": "citrolabs",
-    "email": "contact@citrolabs.ai"
+    "name": "Ego Anywhere contributors"
   },
   "metadata": {
-    "description": "ego example skills",
-    "version": "1.0.0"
+    "description": "Ego Anywhere browser integration",
+    "version": "0.1.0"
   },
   "plugins": [
     {
-      "name": "browser-skills",
-      "version": "1.2.5",
-      "description": "Automates browser interactions for web testing, form filling, screenshots, and data extraction",
+      "name": "ego-anywhere",
+      "version": "0.1.0",
+      "description": "Automates browser interactions through Chrome, Tabbit, Edge, or Chromium",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/ego-browser"],
+      "skills": ["./skills/ego-anywhere"],
       "category": "development"
     }
   ]

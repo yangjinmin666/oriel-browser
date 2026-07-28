@@ -42,6 +42,7 @@ export async function createStockChromeHost(options = {}) {
     // （正文 118 字符 vs 有头 4031 字符，2026-07-28 实测）。无头是提速手段，
     // 不是安全默认值，需要时显式传 headless: true。
     headless = false,
+    keepBrowserAlive = false,
     port = 0,
     userDataDir = DEFAULT_PROFILE_DIR,
   } = options;
@@ -64,7 +65,8 @@ export async function createStockChromeHost(options = {}) {
       "--no-first-run",
       "--no-default-browser-check",
       "about:blank",
-    ], { stdio: "ignore" });
+    ], { stdio: "ignore", detached: keepBrowserAlive });
+    if (keepBrowserAlive) child.unref();
     version = await waitForEndpoint(chosenPort);
   }
   const ws = new WebSocket(version.webSocketDebuggerUrl);
@@ -226,10 +228,12 @@ export async function createStockChromeHost(options = {}) {
       return publicSpace(space);
     },
 
-    async listTaskSpaces() { return [...spaces.values()].map(publicSpace); },
+    async listTaskSpaces() {
+      return { taskSpaces: [...spaces.values()].map(publicSpace) };
+    },
 
     async closeTaskSpace(nameOrId) {
-      const space = findSpace(nameOrId);
+      const space = findSpace(nameOrId ?? activeSpaceId);
       if (space.browserContextId) {
         // 只有隔离空间有自己的 context；默认空间用的是 Chrome 默认区域，不能销毁，
         // 否则会连带清掉持久化的登录态。
@@ -252,7 +256,7 @@ export async function createStockChromeHost(options = {}) {
     },
 
     async completeTaskSpace(nameOrId, opts = {}) {
-      const space = findSpace(nameOrId);
+      const space = findSpace(nameOrId ?? activeSpaceId);
       if (space.ownership === "user" && opts.keep) return { done: false, skipped: "user-owned" };
       if (opts.keep) return { done: true };
       return host.closeTaskSpace(nameOrId);
@@ -286,7 +290,7 @@ export async function createStockChromeHost(options = {}) {
     // 连接模式下只断开自己，绝不结束浏览器进程——那是用户正在用的浏览器。
     async close() {
       try { ws.close(); } catch {}
-      if (child) { child.kill(); await sleep(400); }
+      if (child && !keepBrowserAlive) { child.kill(); await sleep(400); }
     },
   };
 
@@ -296,7 +300,14 @@ export async function createStockChromeHost(options = {}) {
     }
     throw new Error(`找不到任务空间: ${nameOrId}`);
   }
-  const publicSpace = (s) => ({ id: s.id, name: s.name, ownership: s.ownership });
+  const publicSpace = (s) => ({
+    taskId: s.name,
+    id: s.id,
+    name: s.name,
+    createdBy: "agent",
+    ownership: s.ownership,
+    recentTabTitles: [],
+  });
 
   return host;
 }
