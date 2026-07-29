@@ -272,3 +272,18 @@ test("daemon rejects methods outside the explicit allowlist", async () => {
     await client.close();
   });
 });
+
+test("daemon allows background target tracking without activating a tab", async () => {
+  await withDaemon(async ({ socketPath, trackedTargets }) => {
+    const client = await connectDaemonRpc({ socketPath });
+    await client.trackActiveTarget("boss-background-target");
+
+    assert.deepEqual(trackedTargets, [
+      {
+        scopeId: trackedTargets[0].scopeId,
+        targetId: "boss-background-target",
+      },
+    ]);
+    await client.close();
+  });
+});

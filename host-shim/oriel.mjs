@@ -10,7 +10,9 @@ import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
 import {
   APP_SUPPORT_DIR,
   CONFIG_PATH,
+  RUNTIME_PROFILE_ID,
   loadRuntimeConfig,
+  runtimeProfileFile,
 } from "./runtime-config.mjs";
 
 const RUNTIME_DIR = dirname(fileURLToPath(import.meta.url));
@@ -26,11 +28,11 @@ const DAEMON_ENTRY = join(RUNTIME_DIR, "oriel-daemon.mjs");
 const DAEMON_SOCKET_PATH =
   process.env.ORIEL_DAEMON_SOCKET ||
   process.env.ZHIYOU_DAEMON_SOCKET ||
-  join(APP_SUPPORT_DIR, "daemon.sock");
+  join(APP_SUPPORT_DIR, runtimeProfileFile("daemon", "sock"));
 const DAEMON_LOG_PATH =
   process.env.ORIEL_DAEMON_LOG ||
   process.env.ZHIYOU_DAEMON_LOG ||
-  join(APP_SUPPORT_DIR, "daemon.log");
+  join(APP_SUPPORT_DIR, runtimeProfileFile("daemon", "log"));
 const args = process.argv.slice(2);
 if (args[0] === "nodejs") args.shift();
 process.env.EGO_BROWSER_AGENT_WORKSPACE ||= SKILL_DIR;
@@ -78,6 +80,7 @@ function launchDaemon() {
       env: {
         ...process.env,
         ORIEL_CONFIG: CONFIG_PATH,
+        ORIEL_PROFILE_ID: RUNTIME_PROFILE_ID,
         ORIEL_DAEMON_SOCKET: DAEMON_SOCKET_PATH,
       },
     });
@@ -116,7 +119,8 @@ async function doctorReport({ config, configError }) {
   } catch {}
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    profileId: RUNTIME_PROFILE_ID,
     status:
       config && ready && daemonStatus
         ? "ready"

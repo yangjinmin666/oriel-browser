@@ -13,17 +13,21 @@ import { join } from "node:path";
 
 import { startDaemonRpcServer } from "./daemon-rpc.mjs";
 import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
-import { APP_SUPPORT_DIR, loadRuntimeConfig } from "./runtime-config.mjs";
+import {
+  APP_SUPPORT_DIR,
+  loadRuntimeConfig,
+  runtimeProfileFile,
+} from "./runtime-config.mjs";
 import { createStockChromeHost } from "./stock-chrome-host.mjs";
 
 export const DAEMON_SOCKET_PATH =
   process.env.ORIEL_DAEMON_SOCKET ||
   process.env.ZHIYOU_DAEMON_SOCKET ||
-  join(APP_SUPPORT_DIR, "daemon.sock");
+  join(APP_SUPPORT_DIR, runtimeProfileFile("daemon", "sock"));
 export const DAEMON_LOCK_PATH =
   process.env.ORIEL_DAEMON_LOCK ||
   process.env.ZHIYOU_DAEMON_LOCK ||
-  join(APP_SUPPORT_DIR, "daemon.lock");
+  join(APP_SUPPORT_DIR, runtimeProfileFile("daemon", "lock"));
 
 function processIsAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -98,8 +102,18 @@ async function shutdown(reason, exitCode = 0) {
 }
 
 try {
+  const browserReady = await endpointReady(config.endpoint);
+  const mayLaunchBrowser =
+    process.env.ORIEL_ALLOW_BROWSER_LAUNCH === "1" ||
+    process.env.ORIEL_BROWSER_HEADLESS === "1";
+  if (!browserReady && !mayLaunchBrowser) {
+    throw new Error(
+      `Oriel 浏览器资料 ${config.profileId} 尚未启动；` +
+        "请先在 Oriel 控制中心点击启动",
+    );
+  }
   host = await createStockChromeHost(
-    (await endpointReady(config.endpoint))
+    browserReady
       ? { connectTo: config.endpoint }
       : {
           chromePath: config.browserPath,
@@ -117,6 +131,7 @@ try {
     host,
     socketPath: DAEMON_SOCKET_PATH,
     metadata: {
+      profileId: config.profileId,
       browserName: config.browserName,
       endpoint: config.endpoint,
       startedAt: new Date().toISOString(),

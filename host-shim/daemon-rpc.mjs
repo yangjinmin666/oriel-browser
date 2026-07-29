@@ -19,6 +19,7 @@ export const HOST_RPC_METHODS = Object.freeze([
   "claimTaskSpace",
   "handOffTaskSpace",
   "takeOverTaskSpace",
+  "trackActiveTarget",
   "upgradeBrowser",
 ]);
 

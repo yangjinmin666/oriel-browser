@@ -14,6 +14,27 @@ export const LEGACY_APP_SUPPORT_DIRS = [
   join(homedir(), "Library", "Application Support", "Ego Anywhere"),
 ];
 
+function normalizeProfileId(value) {
+  const profileId = String(value || "account-1")
+    .trim()
+    .toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{0,48}$/.test(profileId)) {
+    throw new Error("Oriel 配置无效：浏览器资料标识格式不正确");
+  }
+  return profileId;
+}
+
+export const RUNTIME_PROFILE_ID = normalizeProfileId(
+  process.env.ORIEL_PROFILE_ID || "account-1",
+);
+
+export const RUNTIME_PROFILE_SUFFIX =
+  RUNTIME_PROFILE_ID === "account-1" ? "" : `.${RUNTIME_PROFILE_ID}`;
+
+export function runtimeProfileFile(baseName, extension) {
+  return `${baseName}${RUNTIME_PROFILE_SUFFIX}.${extension}`;
+}
+
 const legacyConfigPath = LEGACY_APP_SUPPORT_DIRS.map((directory) =>
   join(directory, "config.json"),
 ).find(existsSync);
@@ -22,19 +43,24 @@ export const CONFIG_PATH =
   process.env.ORIEL_CONFIG ||
   process.env.ZHIYOU_CONFIG ||
   process.env.EGO_ANYWHERE_CONFIG ||
-  (existsSync(join(APP_SUPPORT_DIR, "config.json"))
-    ? join(APP_SUPPORT_DIR, "config.json")
-    : legacyConfigPath
+  (existsSync(
+    join(APP_SUPPORT_DIR, runtimeProfileFile("config", "json")),
+  )
+    ? join(APP_SUPPORT_DIR, runtimeProfileFile("config", "json"))
+    : RUNTIME_PROFILE_ID === "account-1" && legacyConfigPath
       ? legacyConfigPath
-      : join(APP_SUPPORT_DIR, "config.json"));
+      : join(APP_SUPPORT_DIR, runtimeProfileFile("config", "json")));
 
 export const DEFAULT_CONFIG = Object.freeze({
+  profileId: RUNTIME_PROFILE_ID,
   browserId: "chrome",
   browserName: "Google Chrome",
   browserPath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  endpoint: "http://127.0.0.1:9765",
-  port: 9765,
-  profilePath: join(APP_SUPPORT_DIR, "Profiles", "chrome"),
+  endpoint: `http://127.0.0.1:${
+    RUNTIME_PROFILE_ID === "account-1" ? 9765 : 9766
+  }`,
+  port: RUNTIME_PROFILE_ID === "account-1" ? 9765 : 9766,
+  profilePath: join(APP_SUPPORT_DIR, "Profiles", RUNTIME_PROFILE_ID),
 });
 
 function configError(message) {
@@ -132,6 +158,7 @@ export function loadRuntimeConfig(path = CONFIG_PATH) {
   const endpoint = normalizeEndpoint(endpointCandidate, port);
 
   return {
+    profileId: RUNTIME_PROFILE_ID,
     browserId: nonEmptyString(
       parsed.browserId,
       "browserId",

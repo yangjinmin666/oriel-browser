@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,8 @@ import {
   normalizeEndpoint,
   normalizePort,
 } from "./runtime-config.mjs";
+
+const runtimeConfigEntry = new URL("./runtime-config.mjs", import.meta.url);
 
 test("uses safe localhost default when no config exists", () => {
   const path = join(mkdtempSync(join(tmpdir(), "oriel-")), "missing.json");
@@ -106,4 +109,41 @@ test("rejects relative browser and profile paths", () => {
 test("rejects invalid ports before starting a browser", () => {
   assert.throws(() => normalizePort(80), /1024 到 65535/);
   assert.throws(() => normalizePort("not-a-port"), /1024 到 65535/);
+});
+
+test("selects an isolated configuration and defaults for account 2", () => {
+  const script = `
+    import {
+      CONFIG_PATH,
+      DEFAULT_CONFIG,
+      RUNTIME_PROFILE_ID,
+    } from ${JSON.stringify(runtimeConfigEntry.href)}
+    console.log(JSON.stringify({
+      configPath: CONFIG_PATH,
+      defaults: DEFAULT_CONFIG,
+      profileId: RUNTIME_PROFILE_ID,
+    }))
+  `;
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "--eval", script],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        ORIEL_PROFILE_ID: "account-2",
+        ORIEL_CONFIG: "",
+        ZHIYOU_CONFIG: "",
+        EGO_ANYWHERE_CONFIG: "",
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.profileId, "account-2");
+  assert.match(payload.configPath, /config\.account-2\.json$/);
+  assert.equal(payload.defaults.profileId, "account-2");
+  assert.equal(payload.defaults.port, 9766);
+  assert.match(payload.defaults.profilePath, /Profiles\/account-2$/);
 });
