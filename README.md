@@ -127,10 +127,12 @@ oriel --doctor
 and browser tasks through the installed `oriel-browser` skill. Oriel installs
 that skill into both `~/.codex/skills/` and `~/.claude/skills/`. At the
 agent-facing level it **replaces** the old `ego-browser` and `zhiyou-browser`
-skills, which the installer removes from both locations so agents cannot select
-their obsolete helper API. The repository still contains `skills/ego-browser`
-only as upstream runtime knowledge and site notes; it is not a second
-user-facing Oriel skill. The legacy `zhiyou` command remains as a compatibility
+skills. The installer removes old copies from both locations and installs a
+small `ego-browser` compatibility entry that uses only Oriel's current API.
+This also safely shadows the bundled skill from an older ego lite App without
+modifying that signed App. It is a redirect, not a second browser capability.
+The repository still contains `skills/ego-browser` only as upstream runtime
+knowledge and site notes. The legacy `zhiyou` command remains as a compatibility
 alias.
 
 ### Default tab isolation

@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE_ROOT="$ROOT/apps/macos/Sources"
 RESOURCE_ROOT="$ROOT/apps/macos/Resources"
 ORIEL_SKILL="$ROOT/skills/oriel-browser/SKILL.md"
+EGO_COMPATIBILITY_SKILL="$ROOT/skills/compatibility/ego-browser/SKILL.md"
 
 for directory in App Core Features Shared; do
   if [[ ! -d "$SOURCE_ROOT/$directory" ]]; then
@@ -89,26 +90,28 @@ if [[ -s "$TEMP_DIRECTORY/unused.keys" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$ORIEL_SKILL" ]]; then
-  echo "Missing Oriel agent skill: $ORIEL_SKILL" >&2
-  exit 1
-fi
-
-for obsolete_api in "useOrCreateTaskSpace(" "snapshotText("; do
-  if grep -Fq "$obsolete_api" "$ORIEL_SKILL"; then
-    echo "Oriel skill still teaches obsolete API: $obsolete_api" >&2
+for agent_skill in "$ORIEL_SKILL" "$EGO_COMPATIBILITY_SKILL"; do
+  if [[ ! -f "$agent_skill" ]]; then
+    echo "Missing Oriel agent skill: $agent_skill" >&2
     exit 1
   fi
-done
 
-for current_api in \
-  "taskSpaces.useOrCreate(" \
-  "browser.openOrReuseTab(" \
-  "page.snapshot("; do
-  if ! grep -Fq "$current_api" "$ORIEL_SKILL"; then
-    echo "Oriel skill is missing current API guidance: $current_api" >&2
-    exit 1
-  fi
+  for obsolete_api in "useOrCreateTaskSpace(" "snapshotText("; do
+    if grep -Fq "$obsolete_api" "$agent_skill"; then
+      echo "Oriel skill still teaches obsolete API: $obsolete_api" >&2
+      exit 1
+    fi
+  done
+
+  for current_api in \
+    "taskSpaces.useOrCreate(" \
+    "browser.openOrReuseTab(" \
+    "page.snapshot("; do
+    if ! grep -Fq "$current_api" "$agent_skill"; then
+      echo "Oriel skill is missing current API guidance: $current_api" >&2
+      exit 1
+    fi
+  done
 done
 
 for historical_skill in ego-anywhere zhiyou-browser; do

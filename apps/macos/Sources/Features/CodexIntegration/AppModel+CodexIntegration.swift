@@ -46,9 +46,21 @@ extension AppModel {
             let skillSource = resources
                 .appendingPathComponent("Skill", isDirectory: true)
                 .appendingPathComponent(Brand.skillName, isDirectory: true)
-            guard FileManager.default.fileExists(
-                atPath: skillSource.appendingPathComponent("SKILL.md").path
-            ) else {
+            let compatibilitySkillSource = resources
+                .appendingPathComponent("Skill", isDirectory: true)
+                .appendingPathComponent(
+                    Brand.compatibilitySkillName,
+                    isDirectory: true
+                )
+            let skillSources = [
+                Brand.skillName: skillSource,
+                Brand.compatibilitySkillName: compatibilitySkillSource,
+            ]
+            guard skillSources.values.allSatisfy({
+                FileManager.default.fileExists(
+                    atPath: $0.appendingPathComponent("SKILL.md").path
+                )
+            }) else {
                 throw NSError(
                     domain: "Oriel",
                     code: 2,
@@ -72,8 +84,9 @@ extension AppModel {
                 )
 
                 // Oriel's skill replaces the old agent-facing ego-browser
-                // contract. Keeping both lets agents select obsolete helpers.
-                for skillName in [Brand.skillName] + Brand.conflictingSkillNames {
+                // contract. Its compatibility entry uses only current helpers.
+                for skillName in Brand.installedSkillNames
+                    + Brand.conflictingSkillNames {
                     let destination = skillRoot.appendingPathComponent(
                         skillName,
                         isDirectory: true
@@ -83,14 +96,18 @@ extension AppModel {
                     }
                 }
 
-                let skillDestination = skillRoot.appendingPathComponent(
-                    Brand.skillName,
-                    isDirectory: true
-                )
-                try FileManager.default.copyItem(
-                    at: skillSource,
-                    to: skillDestination
-                )
+                for skillName in Brand.installedSkillNames {
+                    guard let source = skillSources[skillName] else {
+                        throw CocoaError(.fileNoSuchFile)
+                    }
+                    try FileManager.default.copyItem(
+                        at: source,
+                        to: skillRoot.appendingPathComponent(
+                            skillName,
+                            isDirectory: true
+                        )
+                    )
+                }
             }
             try saveAllConfigurations()
             cliInstalled = true

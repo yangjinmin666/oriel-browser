@@ -96,6 +96,9 @@ cp "$ROOT/host-shim/stock-chrome-host.mjs" "$RUNTIME/stock-chrome-host.mjs"
 cp -R "$ROOT/package/ego-browser/dist/src/." "$RUNTIME/browser-runtime/"
 cp -R "$ROOT/skills/ego-browser/." "$RUNTIME/skill/"
 cp -R "$ROOT/skills/oriel-browser" "$RESOURCES/Skill/oriel-browser"
+cp -R \
+  "$ROOT/skills/compatibility/ego-browser" \
+  "$RESOURCES/Skill/ego-browser"
 cp "$ROOT/LICENSE" "$RESOURCES/ThirdParty/ego-lite-LICENSE"
 cp "$NODE_DIR/LICENSE" "$RESOURCES/ThirdParty/Node-LICENSE"
 cp "$ROOT/assets/fonts/SpaceGrotesk-OFL.txt" "$RESOURCES/ThirdParty/SpaceGrotesk-OFL.txt"

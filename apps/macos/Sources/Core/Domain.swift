@@ -7,7 +7,9 @@ enum Brand {
     static let cliName = "oriel"
     static let legacyCLINames = ["zhiyou"]
     static let skillName = "oriel-browser"
-    static let conflictingSkillNames = ["ego-browser", "zhiyou-browser"]
+    static let compatibilitySkillName = "ego-browser"
+    static let installedSkillNames = [skillName, compatibilitySkillName]
+    static let conflictingSkillNames = ["zhiyou-browser"]
     static let agentSkillRootRelativePaths = [".codex/skills", ".claude/skills"]
 
     static var releaseLabel: String {

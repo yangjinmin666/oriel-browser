@@ -84,7 +84,8 @@ apps/macos/
 `CodexIntegration` 安装 CLI 启动器，并把同一份
 `oriel-browser` Skill 安装到 Codex 和 Claude Code，不负责执行浏览器任务。
 安装时会删除两个 Agent 目录中的旧 `ego-browser` 和
-`zhiyou-browser` Skill，避免旧 API 与 Oriel API 同时被选中。
+`zhiyou-browser` Skill，再安装规范的 `oriel-browser` 和仅使用现行 API
+的 `ego-browser` 兼容入口。兼容入口用于安全覆盖旧名称，不代表两套能力并存。
 
 `Diagnostics` 汇总浏览器、CLI 和 Skill 的健康状态。
 
@@ -155,6 +156,10 @@ browser-tools/
 `skills/oriel-browser/` 是唯一面向用户安装的 Agent Skill，使用
 `taskSpaces.useOrCreate()`、`browser.openOrReuseTab()` 和
 `page.snapshot()` 等 Oriel 门面 API。
+
+`skills/compatibility/ego-browser/` 是旧名称的薄兼容入口，也只使用上述
+门面 API。它会安装到个人 skill 目录，从而无需改动或破坏旧 ego lite App
+的签名。
 
 `skills/ego-browser/` 随上游 MIT 运行时保留，用于站点知识、核查记录和
 运行时资源，不与 `oriel-browser` 并列安装。对 Codex 和 Claude Code

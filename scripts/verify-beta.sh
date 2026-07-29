@@ -35,6 +35,7 @@ required_bundle_files=(
   "Contents/Resources/Runtime/runtime-config.mjs"
   "Contents/Resources/Runtime/debug-endpoint.mjs"
   "Contents/Resources/Skill/oriel-browser/SKILL.md"
+  "Contents/Resources/Skill/ego-browser/SKILL.md"
   "Contents/Resources/en.lproj/Localizable.strings"
   "Contents/Resources/zh-Hans.lproj/Localizable.strings"
   "Contents/Resources/ThirdParty/THIRD_PARTY_NOTICES.md"
