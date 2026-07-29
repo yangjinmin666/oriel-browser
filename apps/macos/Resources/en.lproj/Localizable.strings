@@ -2,11 +2,14 @@
 "accessibility.status.ready" = "Ready";
 "browser.detected" = "Detected";
 "browser.not_installed" = "Not installed";
+"browser_profile.account_1" = "Account 1";
+"browser_profile.account_2" = "Account 2";
 "control_center.browser.connected" = "Connected";
 "control_center.browser.connected_detail" = "The local browser connection is running";
 "control_center.browser.disconnected" = "Not connected";
 "control_center.browser.disconnected_detail" = "Select a browser, then start the connection";
 "control_center.browser.section" = "Browser";
+"control_center.browser.profile_endpoint" = "Isolated channel · port %d";
 "control_center.browser.start" = "Start";
 "control_center.browser.stop" = "Stop";
 "control_center.codex.detail" = "CLI + browser skill";
@@ -20,8 +23,7 @@
 "control_center.feature.sessions" = "Persistent sessions";
 "control_center.feature.task_spaces" = "Private task spaces";
 "control_center.health.browser" = "Browser connection";
-"control_center.health.browser.connected" = "Ready for Codex";
-"control_center.health.browser.disconnected" = "Start the selected browser";
+"control_center.health.browser.profiles" = "%d of %d account browsers connected";
 "control_center.health.configuration" = "Local configuration";
 "control_center.health.configuration.needs_repair" = "Needs a local repair";
 "control_center.health.configuration.ready" = "Only points to this Mac";
@@ -47,10 +49,11 @@
 "menu.refresh" = "Check Again";
 "menu.status.connected" = "Browser connected";
 "menu.status.disconnected" = "Browser not connected";
-"message.browser.connected" = "Browser connected. Codex is ready to work.";
 "message.browser.already_connected" = "The selected browser is already connected.";
 "message.browser.connected_login" = "Browser connected. Sign in to the websites you want to use in this browser.";
 "message.browser.none_detected" = "No supported Chromium browser was detected.";
+"message.browser.profile_partially_connected" = "One account browser is connected; the other is waiting to start.";
+"message.browser.profiles_connected" = "Both account browsers are connected and ready for separate tasks.";
 "message.browser.ready" = "The environment is ready. Start the browser to continue.";
 "message.browser.stopped" = "Browser stopped. Your login state remains stored locally.";
 "message.codex.installed" = "Oriel integration is installed. The background service starts with the first task. Reopen Codex to use it.";

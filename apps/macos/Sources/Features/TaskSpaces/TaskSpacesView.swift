@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TaskSpacesView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var selectedSpaceId: Int?
+    @State private var selectedSpaceId: String?
 
     private var selectedSpace: TaskSpaceSummary? {
         if let selectedSpaceId,
@@ -107,9 +107,21 @@ struct TaskSpacesView: View {
                         VStack(alignment: .leading, spacing: 18) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(space.name)
-                                        .font(.title3.weight(.semibold))
-                                    Text(
+                                Text(space.name)
+                                    .font(.title3.weight(.semibold))
+                                Text(
+                                    model.profileState(space.profileId)?.label
+                                        ?? space.profileId
+                                )
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(
+                                        Color(
+                                            red: 0.24,
+                                            green: 0.52,
+                                            blue: 0.96
+                                        )
+                                    )
+                                Text(
                                         space.isAgentOwned
                                             ? L10n.text("task_spaces.agent_control")
                                             : L10n.text("task_spaces.user_control")
@@ -118,7 +130,7 @@ struct TaskSpacesView: View {
                                     .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text("#\(space.id)")
+                                Text("#\(space.runtimeId)")
                                     .font(.caption.monospaced())
                                     .foregroundStyle(.tertiary)
                             }

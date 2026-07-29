@@ -84,6 +84,8 @@ struct BrowserDebugVersion: Decodable {
 }
 
 struct RuntimeConfiguration: Codable {
+    let profileId: String?
+    let profileLabel: String?
     let browserId: String
     let browserName: String
     let browserPath: String
@@ -91,6 +93,21 @@ struct RuntimeConfiguration: Codable {
     let port: Int
     let profilePath: String
     let updatedAt: String
+}
+
+struct BrowserProfileState: Identifiable, Hashable {
+    let id: String
+    let label: String
+    var selectedBrowserId: String
+    let port: Int
+    var connected: Bool = false
+    var daemonRunning: Bool = false
+    var daemonClientCount: Int = 0
+    var configurationValid: Bool = true
+
+    var endpoint: String {
+        "http://127.0.0.1:\(port)"
+    }
 }
 
 struct DoctorReport: Decodable, Sendable {
@@ -113,6 +130,7 @@ struct DoctorReport: Decodable, Sendable {
     }
 
     let schemaVersion: Int
+    let profileId: String?
     let status: String
     let configuration: Configuration
     let browser: Browser
@@ -121,11 +139,25 @@ struct DoctorReport: Decodable, Sendable {
 
 struct TaskSpaceSummary: Decodable, Identifiable, Hashable, Sendable {
     let taskId: String
-    let id: Int
+    let runtimeId: Int
     let name: String
     let createdBy: String?
     let ownership: String?
     let recentTabTitles: [String]
+    var profileId = "account-1"
+
+    var id: String {
+        "\(profileId):\(runtimeId)"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case taskId
+        case runtimeId = "id"
+        case name
+        case createdBy
+        case ownership
+        case recentTabTitles
+    }
 
     var isAgentOwned: Bool {
         ownership == "agent"

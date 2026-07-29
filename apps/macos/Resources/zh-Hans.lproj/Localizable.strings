@@ -2,11 +2,14 @@
 "accessibility.status.ready" = "已就绪";
 "browser.detected" = "已检测到";
 "browser.not_installed" = "未安装";
+"browser_profile.account_1" = "账号 1";
+"browser_profile.account_2" = "账号 2";
 "control_center.browser.connected" = "已连接";
 "control_center.browser.connected_detail" = "本机浏览器连接正在运行";
 "control_center.browser.disconnected" = "未连接";
 "control_center.browser.disconnected_detail" = "选择浏览器后启动连接";
 "control_center.browser.section" = "浏览器";
+"control_center.browser.profile_endpoint" = "独立通道 · 端口 %d";
 "control_center.browser.start" = "启动";
 "control_center.browser.stop" = "停止";
 "control_center.codex.detail" = "命令行工具 + 浏览器技能";
@@ -20,8 +23,7 @@
 "control_center.feature.sessions" = "持久会话";
 "control_center.feature.task_spaces" = "私有任务空间";
 "control_center.health.browser" = "浏览器连接";
-"control_center.health.browser.connected" = "可供 Codex 使用";
-"control_center.health.browser.disconnected" = "请启动已选择的浏览器";
+"control_center.health.browser.profiles" = "已连接 %d / %d 个账号浏览器";
 "control_center.health.configuration" = "本机配置";
 "control_center.health.configuration.needs_repair" = "需要本机修复";
 "control_center.health.configuration.ready" = "仅指向当前 Mac";
@@ -47,10 +49,11 @@
 "menu.refresh" = "重新检查";
 "menu.status.connected" = "浏览器已连接";
 "menu.status.disconnected" = "浏览器未连接";
-"message.browser.connected" = "浏览器已连接，Codex 可以开始工作。";
 "message.browser.already_connected" = "已选择的浏览器已经连接。";
 "message.browser.connected_login" = "浏览器已连接。请在这个浏览器中登录需要使用的网站。";
 "message.browser.none_detected" = "没有检测到受支持的 Chromium 浏览器。";
+"message.browser.profile_partially_connected" = "已有一个账号浏览器连接；另一个账号仍待启动。";
+"message.browser.profiles_connected" = "两个账号浏览器均已连接，可以分别执行任务。";
 "message.browser.ready" = "环境已就绪，启动浏览器即可使用。";
 "message.browser.stopped" = "浏览器已停止。登录状态仍保存在本机。";
 "message.codex.installed" = "Oriel 集成已安装，后台会在首次任务时自动启动。重新打开 Codex 后即可使用。";

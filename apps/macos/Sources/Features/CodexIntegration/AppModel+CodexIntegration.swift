@@ -69,7 +69,7 @@ extension AppModel {
                 withIntermediateDirectories: true
             )
             try FileManager.default.copyItem(at: skillSource, to: skillDestination)
-            try saveConfiguration()
+            try saveAllConfigurations()
             cliInstalled = true
             skillInstalled = true
             message = L10n.text("message.codex.installed")

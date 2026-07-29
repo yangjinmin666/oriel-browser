@@ -22,7 +22,9 @@ struct ControlCenterView: View {
                 .frame(width: 236)
                 Spacer()
                 StatusPill(
-                    ready: model.browserConnected && model.cliInstalled && model.skillInstalled,
+                    ready: model.allBrowserProfilesConnected
+                        && model.cliInstalled
+                        && model.skillInstalled,
                     readyText: L10n.text("control_center.status.ready"),
                     pendingText: L10n.text("control_center.status.setup")
                 )
@@ -40,60 +42,9 @@ struct ControlCenterView: View {
                             L10n.text("control_center.browser.section"),
                             index: "01"
                         )
-                        VStack(spacing: 4) {
-                            ForEach(model.browsers) { browser in
-                                BrowserRow(
-                                    browser: browser,
-                                    selected: model.selectedBrowserId == browser.id,
-                                    selectionLocked: model.browserConnected,
-                                    action: { model.select(browser) }
-                                )
-                            }
-                        }
-
-                        Divider()
-
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(
-                                    model.browserConnected
-                                        ? L10n.text("control_center.browser.connected")
-                                        : L10n.text("control_center.browser.disconnected")
-                                )
-                                    .font(.headline)
-                                Text(
-                                    model.browserConnected
-                                        ? L10n.text("control_center.browser.connected_detail")
-                                        : L10n.text("control_center.browser.disconnected_detail")
-                                )
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if model.browserConnected {
-                                Button {
-                                    model.stopBrowser()
-                                } label: {
-                                    Label(
-                                        L10n.text("control_center.browser.stop"),
-                                        systemImage: "stop.fill"
-                                    )
-                                }
-                                .buttonStyle(.bordered)
-                                .disabled(model.busy)
-                            } else {
-                                Button {
-                                    model.startBrowser()
-                                } label: {
-                                    Label(
-                                        L10n.text("control_center.browser.start"),
-                                        systemImage: "play.fill"
-                                    )
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.black)
-                                .foregroundStyle(.white)
-                                .disabled(model.busy)
+                        VStack(spacing: 16) {
+                            ForEach(model.browserProfiles) { profile in
+                                browserProfileCard(profile)
                             }
                         }
                     }
@@ -177,10 +128,12 @@ struct ControlCenterView: View {
                         )
                         HealthRow(
                             title: L10n.text("control_center.health.browser"),
-                            detail: model.browserConnected
-                                ? L10n.text("control_center.health.browser.connected")
-                                : L10n.text("control_center.health.browser.disconnected"),
-                            ready: model.browserConnected
+                            detail: L10n.format(
+                                "control_center.health.browser.profiles",
+                                model.browserProfiles.filter(\.connected).count,
+                                model.browserProfiles.count
+                            ),
+                            ready: model.allBrowserProfilesConnected
                         )
                         HealthRow(
                             title: L10n.text("control_center.health.daemon"),
@@ -278,5 +231,97 @@ struct ControlCenterView: View {
             Text(title)
                 .font(.title3.weight(.semibold))
         }
+    }
+
+    private func browserProfileCard(
+        _ profile: BrowserProfileState
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(profile.label)
+                        .font(.headline)
+                    Text(L10n.format(
+                        "control_center.browser.profile_endpoint",
+                        profile.port
+                    ))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                StatusPill(
+                    ready: profile.connected,
+                    readyText: L10n.text(
+                        "control_center.browser.connected"
+                    ),
+                    pendingText: L10n.text(
+                        "control_center.browser.disconnected"
+                    )
+                )
+            }
+
+            VStack(spacing: 3) {
+                ForEach(model.browsers) { browser in
+                    BrowserRow(
+                        browser: browser,
+                        selected: profile.selectedBrowserId == browser.id,
+                        selectionLocked: profile.connected,
+                        action: {
+                            model.select(
+                                browser,
+                                profileId: profile.id
+                            )
+                        }
+                    )
+                }
+            }
+
+            HStack(spacing: 12) {
+                Text(
+                    profile.connected
+                        ? L10n.text(
+                            "control_center.browser.connected_detail"
+                        )
+                        : L10n.text(
+                            "control_center.browser.disconnected_detail"
+                        )
+                )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if profile.connected {
+                    Button {
+                        model.stopBrowser(profileId: profile.id)
+                    } label: {
+                        Label(
+                            L10n.text("control_center.browser.stop"),
+                            systemImage: "stop.fill"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.busy)
+                } else {
+                    Button {
+                        model.startBrowser(profileId: profile.id)
+                    } label: {
+                        Label(
+                            L10n.text("control_center.browser.start"),
+                            systemImage: "play.fill"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.black)
+                    .foregroundStyle(.white)
+                    .disabled(model.busy)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.black.opacity(0.07))
+        )
     }
 }

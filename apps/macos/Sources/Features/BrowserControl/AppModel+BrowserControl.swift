@@ -1,9 +1,12 @@
 import Foundation
 
 extension AppModel {
-    func startBrowser() {
+    func startBrowser(
+        profileId: String = "account-1"
+    ) {
         Task {
-            guard let browser = selectedBrowser else {
+            guard let profileState = profileState(profileId),
+                  let browser = selectedBrowser(for: profileId) else {
                 lastError = L10n.text("error.browser.not_detected")
                 return
             }
@@ -13,17 +16,20 @@ extension AppModel {
             }
             busy = true
             lastError = nil
-            if await endpointReady() {
-                browserConnected = true
+            if await endpointReady(profileId: profileId) {
+                updateProfile(profileId) {
+                    $0.connected = true
+                }
                 message = L10n.text("message.browser.already_connected")
                 busy = false
                 return
             }
             do {
-                try saveConfiguration()
-                let profile = supportDirectory
-                    .appendingPathComponent("Profiles", isDirectory: true)
-                    .appendingPathComponent(browser.id, isDirectory: true)
+                try saveConfiguration(profileId: profileId)
+                let profile = browserDataDirectory(
+                    for: profileId,
+                    browser: browser
+                )
                 try FileManager.default.createDirectory(
                     at: profile,
                     withIntermediateDirectories: true
@@ -31,7 +37,7 @@ extension AppModel {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: browser.executablePath)
                 process.arguments = [
-                    "--remote-debugging-port=\(connectionPort)",
+                    "--remote-debugging-port=\(profileState.port)",
                     "--remote-debugging-address=127.0.0.1",
                     "--user-data-dir=\(profile.path)",
                     "--no-first-run",
@@ -40,8 +46,10 @@ extension AppModel {
                 ]
                 try process.run()
                 for _ in 0..<40 {
-                    if await endpointReady() {
-                        browserConnected = true
+                    if await endpointReady(profileId: profileId) {
+                        updateProfile(profileId) {
+                            $0.connected = true
+                        }
                         message = L10n.text("message.browser.connected_login")
                         busy = false
                         return
@@ -57,12 +65,16 @@ extension AppModel {
         }
     }
 
-    func stopBrowser() {
+    func stopBrowser(
+        profileId: String = "account-1"
+    ) {
         busy = true
         lastError = nil
         Task {
             do {
-                let version = try await debuggerVersion()
+                let version = try await debuggerVersion(
+                    profileId: profileId
+                )
                 guard let socketURL = URL(string: version.webSocketDebuggerURL) else {
                     throw browserControlEndpointError()
                 }
@@ -73,8 +85,12 @@ extension AppModel {
                 )
                 socket.cancel(with: .normalClosure, reason: nil)
                 for _ in 0..<20 {
-                    if !(await endpointReady()) {
-                        browserConnected = false
+                    if !(await endpointReady(profileId: profileId)) {
+                        updateProfile(profileId) {
+                            $0.connected = false
+                            $0.daemonRunning = false
+                            $0.daemonClientCount = 0
+                        }
                         message = L10n.text("message.browser.stopped")
                         busy = false
                         return

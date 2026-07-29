@@ -5,7 +5,10 @@ extension AppModel {
         Task {
             busy = true
             await refreshStatus()
-            if browserConnected && cliInstalled && skillInstalled && configurationValid {
+            if allBrowserProfilesConnected
+                && cliInstalled
+                && skillInstalled
+                && configurationValid {
                 message = L10n.text("message.diagnostics.passed")
                 lastError = nil
             } else {
@@ -20,8 +23,10 @@ extension AppModel {
             busy = true
             lastError = nil
             do {
-                _ = try saveConfiguration()
-                await stopDaemonIfRunning()
+                try saveAllConfigurations()
+                for profile in browserProfiles {
+                    await stopDaemonIfRunning(profileId: profile.id)
+                }
                 await refreshStatus()
                 message = L10n.text("message.diagnostics.repaired")
             } catch {
@@ -31,7 +36,7 @@ extension AppModel {
         }
     }
 
-    private func stopDaemonIfRunning() async {
+    private func stopDaemonIfRunning(profileId: String) async {
         guard let nodeURL = Bundle.main.url(
             forResource: "node",
             withExtension: nil,
@@ -50,6 +55,9 @@ extension AppModel {
             let process = Process()
             process.executableURL = nodeURL
             process.arguments = [entryURL.path, "--daemon-stop"]
+            var environment = ProcessInfo.processInfo.environment
+            environment["ORIEL_PROFILE_ID"] = profileId
+            process.environment = environment
             process.standardOutput = Pipe()
             process.standardError = Pipe()
             do {
