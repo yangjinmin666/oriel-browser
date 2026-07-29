@@ -45,6 +45,33 @@ for bundle_file in "${required_bundle_files[@]}"; do
   fi
 done
 
+verify_packaged_doctor() {
+  local app_root="$1"
+  local temporary_home
+  local doctor_output
+  temporary_home="$(mktemp -d "$ROOT/build/oriel-doctor.XXXXXX")"
+  doctor_output="$(
+    HOME="$temporary_home" \
+      "$app_root/Contents/Resources/Runtime/bin/node" \
+      "$app_root/Contents/Resources/Runtime/oriel.mjs" \
+      --doctor --json
+  )"
+  rm -rf "$temporary_home"
+
+  DOCTOR_OUTPUT="$doctor_output" node -e '
+    const report = JSON.parse(process.env.DOCTOR_OUTPUT)
+    if (report.schemaVersion !== 1 || report.configuration?.valid !== true) {
+      throw new Error("Packaged doctor report is not usable.")
+    }
+    const serialized = JSON.stringify(report)
+    if (serialized.includes("browserPath") || serialized.includes("profilePath")) {
+      throw new Error("Packaged doctor report exposes a local path.")
+    }
+  '
+}
+
+verify_packaged_doctor "$APP"
+
 "$ROOT/scripts/package-macos-dmg.sh"
 hdiutil verify "$DMG" >/dev/null
 
@@ -63,5 +90,7 @@ if [[ ! -d "$MOUNT_POINT/Oriel.app" || ! -L "$MOUNT_POINT/Applications" ]]; then
   echo "DMG contents are incomplete." >&2
   exit 1
 fi
+
+verify_packaged_doctor "$MOUNT_POINT/Oriel.app"
 
 echo "Oriel Beta verification passed: $VERSION (build $BUILD_NUMBER)."
