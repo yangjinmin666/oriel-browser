@@ -7,8 +7,8 @@ macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
 browser with a persistent local profile, and installs the Codex skill and CLI
 without requiring terminal setup or a separate AI browser.
 
-> **Status:** `v0.2.0-alpha`. The core runtime is well tested, but the macOS app
-> is an early preview and is not yet notarized.
+> **Status:** `v0.2.0-alpha` Beta. The core runtime and local packaging gate are
+> tested; the macOS app is not yet notarized for public distribution.
 
 ## What works
 
@@ -23,7 +23,7 @@ without requiring terminal setup or a separate AI browser.
 - Site notes for GitHub, Zhihu, BOSS Zhipin, and other tested workflows
 
 Chrome and Tabbit have both passed an end-to-end packaged-runtime check.
-The runtime test suite currently contains 299 passing tests, plus 13 host and
+The runtime test suite currently contains 299 passing tests, plus 20 host and
 daemon protocol tests.
 
 ## How it works
@@ -104,6 +104,9 @@ oriel --daemon-status
 oriel --daemon-stop
 ```
 
+For the full first-run, privacy, status, and troubleshooting guide, read
+[`docs/BETA_GUIDE.md`](docs/BETA_GUIDE.md).
+
 ## Security model
 
 - The debugging endpoint is bound to `127.0.0.1`.
@@ -131,6 +134,16 @@ Host configuration tests:
 ```bash
 node --test host-shim/*.test.mjs
 ```
+
+Run the complete local Beta verification before sharing a DMG:
+
+```bash
+./scripts/verify-beta.sh
+```
+
+The verification script checks the build, app signature, embedded resources,
+DMG contents, tests, and public-release safety guard. It does not claim Apple
+Developer signing or notarization.
 
 ## Roadmap
 

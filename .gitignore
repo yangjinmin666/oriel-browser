@@ -40,6 +40,9 @@ coverage/
 .env
 .env.*
 *.local
+Library/Application Support/Oriel/
+*.p12
+*.mobileprovision
 
 # IDE / Editor
 .idea/

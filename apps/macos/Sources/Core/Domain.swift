@@ -8,6 +8,15 @@ enum Brand {
     static let legacyCLINames = ["zhiyou", "ego-anywhere"]
     static let skillName = "oriel-browser"
     static let legacySkillNames = ["zhiyou-browser", "ego-anywhere"]
+
+    static var releaseLabel: String {
+        let release = (
+            Bundle.main.object(forInfoDictionaryKey: "OrielReleaseLabel") as? String
+        ) ?? (
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        ) ?? "0.0.0"
+        return "v\(release)"
+    }
 }
 
 struct BrowserChoice: Identifiable, Hashable {

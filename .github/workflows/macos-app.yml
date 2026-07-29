@@ -5,10 +5,12 @@ on:
   pull_request:
     paths:
       - "apps/macos/**"
+      - "assets/**"
       - "host-shim/**"
-      - "scripts/build-macos-app.sh"
-      - "scripts/package-macos-dmg.sh"
+      - "package/ego-browser/**"
+      - "scripts/**"
       - "skills/oriel-browser/**"
+      - "VERSION"
   push:
     tags:
       - "v*"
@@ -25,10 +27,9 @@ jobs:
           cache-dependency-path: package/ego-browser/package-lock.json
       - run: npm ci
         working-directory: package/ego-browser
-      - run: node --test host-shim/*.test.mjs
-      - run: ./scripts/build-macos-app.sh
-      - run: ./scripts/package-macos-dmg.sh
+      - run: ./scripts/verify-beta.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Oriel-macOS
-          path: build/Oriel-0.2.0-alpha.dmg
+          path: build/Oriel-*.dmg
+          if-no-files-found: error

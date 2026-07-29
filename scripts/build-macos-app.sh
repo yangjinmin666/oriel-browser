@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/scripts/read-version.sh"
 APP="$ROOT/build/Oriel.app"
 LEGACY_APP="$ROOT/build/智游 ZhiYou.app"
 OLDER_LEGACY_APP="$ROOT/build/Ego Anywhere.app"
@@ -76,6 +77,9 @@ swiftc \
   "${SWIFT_SOURCES[@]}"
 
 cp "$ROOT/apps/macos/Info.plist" "$CONTENTS/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$CONTENTS/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$CONTENTS/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :OrielReleaseLabel string $VERSION" "$CONTENTS/Info.plist"
 cp "$ROOT/assets/Oriel.icns" "$RESOURCES/Oriel.icns"
 cp "$ROOT/assets/oriel-logo.svg" "$RESOURCES/OrielLogo.svg"
 cp "$ROOT/assets/fonts/SpaceGrotesk-Variable.ttf" "$RESOURCES/Fonts/SpaceGrotesk-Variable.ttf"

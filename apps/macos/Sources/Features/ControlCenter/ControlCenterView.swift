@@ -208,7 +208,7 @@ struct ControlCenterView: View {
                     Spacer()
 
                     HStack {
-                        Text("v0.2.0 alpha")
+                        Text(Brand.releaseLabel)
                             .font(.caption.monospaced())
                             .foregroundStyle(.tertiary)
                         Spacer()

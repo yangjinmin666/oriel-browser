@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/scripts/read-version.sh"
 APP="$ROOT/build/Oriel.app"
-DMG="$ROOT/build/Oriel-0.2.0-alpha.dmg"
+DMG="$ROOT/build/Oriel-${VERSION}.dmg"
 LEGACY_DMG="$ROOT/build/Ego-Anywhere-0.1.0-alpha.dmg"
 PREVIOUS_DMGS=(
   "$ROOT/build/ZhiYou-0.1.0-alpha.dmg"
