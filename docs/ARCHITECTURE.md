@@ -100,6 +100,7 @@ apps/macos/
 | `oriel.mjs` | CLI 入口；连接或拉起 daemon，并把 stdin 脚本交给运行时 |
 | `oriel-daemon.mjs` | 单实例后台进程；管理锁、退出和 CDP Host 生命周期 |
 | `daemon-rpc.mjs` | 用户私有 Unix socket 协议、消息路由和方法白名单 |
+| `debug-endpoint.mjs` | 校验本地端点确为 Chromium DevTools，且 WebSocket 仍绑定 loopback |
 | `stock-chrome-host.mjs` | 把 Chromium CDP 转成运行时需要的 `ego` Host 接口 |
 | `runtime-config.mjs` | 读取并校验 Oriel 本地配置，只允许 localhost 调试端点 |
 
@@ -120,7 +121,7 @@ package/ego-browser/src/
 
 `index.ts` 是 SDK 与 CLI 的公共入口。`helpers.ts` 是 Agent 可调用 API 的单一来源。
 
-`browser-runtime.ts` 管理 CDP 会话、事件和重连；`state.ts` 保存每个进程内共享的运行时状态。
+`browser-runtime.ts` 管理 CDP 会话、事件和重连；`state.ts` 保存每个进程内共享的运行时状态。状态层在真正发出默认 CDP 请求时才加载会话层，避免两个模块在加载阶段形成循环依赖。
 
 `element-resolver.ts` 与 `locator-query.ts` 负责把 ref、role、CSS、XPath 等目标解析成真实元素。
 

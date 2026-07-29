@@ -13,17 +13,21 @@ without requiring terminal setup or a separate AI browser.
 ## What works
 
 - Native macOS control center and menu-bar status
-- Automatic Chrome, Tabbit, and Edge detection
-- One-click managed browser startup on a localhost-only CDP endpoint
+- Automatic Chrome, Tabbit, and Edge detection, including user-level
+  `~/Applications` installs
+- One-click managed browser startup on a verified localhost-only Chromium CDP endpoint
 - Persistent browser login state without copying or exporting cookies
 - Persistent local daemon that reuses task spaces and pages across Codex calls
 - One-click Codex CLI and skill installation
-- Semantic snapshots, refs, navigation, clicks, typing, screenshots, waits, and
-  task spaces from the upstream runtime
+- Semantic snapshots, refs, navigation, clicks, typing, screenshots, waits,
+  HTML5 drag-and-drop, and task spaces from the upstream runtime
 - Site notes for GitHub, Zhihu, BOSS Zhipin, and other tested workflows
 
-Chrome and Tabbit have both passed an end-to-end packaged-runtime check.
-The runtime test suite currently contains 299 passing tests, plus 20 host and
+The packaged Oriel runtime has an end-to-end check that starts an isolated
+temporary Chrome profile, opens a page, and proves two independent CLI calls
+reuse the same task and page before reading semantic snapshots. Chrome and
+Tabbit have also been manually exercised through the macOS control center.
+The runtime test suite currently contains 303 passing tests, plus 25 host and
 daemon protocol tests.
 
 ## How it works
@@ -79,7 +83,32 @@ Build a local DMG:
 The build downloads a pinned official Node.js runtime, verifies its SHA-256
 checksum, and bundles it in the app. End users do not need Node.js installed.
 
-## First run
+## Opening a distributed DMG on macOS
+
+**This build is not yet Developer ID signed or notarized.** The current DMG is
+ad-hoc signed for local integrity checks only, and macOS Gatekeeper rejects it
+on a normal first launch. This is a known Beta limitation, not an install error.
+
+For a copy you obtained from the DMG, the actual first-open flow is:
+
+1. Drag `Oriel.app` to `Applications` and double-click it once.
+2. macOS shows a security warning such as “Apple cannot check this app for
+   malicious software” or that the developer cannot be verified. The exact
+   words follow your macOS language and version. Choose **Done** or **Cancel**;
+   it does not open at this point.
+3. Open **System Settings -> Privacy & Security**, scroll to **Security**, and
+   choose **Open Anyway** for Oriel. This option normally remains for about an
+   hour after the blocked launch.
+4. Confirm **Open** in the second warning. macOS may ask for the current
+   macOS account password before it opens.
+
+That is three confirmations after the first double-click: dismiss the blocked
+launch, **Open Anyway**, then **Open** (plus a password when macOS asks). After
+that, macOS records the exception and later double-clicks open normally. Do not
+override this warning unless the DMG came from a source you trust. Apple’s
+current guidance is [here](https://support.apple.com/en-us/102445).
+
+## First run after Oriel opens
 
 1. Open **Oriel**.
 2. Select Chrome, Tabbit, or Edge.
@@ -109,7 +138,8 @@ For the full first-run, privacy, status, and troubleshooting guide, read
 
 ## Security model
 
-- The debugging endpoint is bound to `127.0.0.1`.
+- The debugging endpoint is bound to `127.0.0.1`; Oriel verifies its Chromium
+  DevTools response and loopback WebSocket before connecting or stopping it.
 - Daemon RPC uses a user-only Unix socket with `0600` permissions.
 - While the managed browser is running, any process on the same Mac may be able
   to control it. Stop the browser from the control center when it is not needed.
@@ -141,9 +171,13 @@ Run the complete local Beta verification before sharing a DMG:
 ./scripts/verify-beta.sh
 ```
 
-The verification script checks the build, app signature, embedded resources,
-DMG contents, tests, and public-release safety guard. It does not claim Apple
-Developer signing or notarization.
+The verification script checks the build, packaged Oriel browser workflow,
+app signature, embedded resources, DMG contents, tests, and public-release
+safety guard. It does not claim Apple Developer signing or notarization.
+
+The true clean-account acceptance record, including what remains blocked until
+an administrator creates a new macOS user, is in
+[`docs/CLEAN_ENVIRONMENT_ACCEPTANCE.md`](docs/CLEAN_ENVIRONMENT_ACCEPTANCE.md).
 
 ## Roadmap
 

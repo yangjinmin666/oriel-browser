@@ -18,7 +18,7 @@ Oriel 不是 Chromium 分支，也不承诺绕过网站的风控或验证码。�
 | 能力 | Beta 通过标准 |
 | --- | --- |
 | 初次使用 | 用户可在应用内完成浏览器选择、启动、登录和 Codex 集成安装；每一步都有明确状态。 |
-| 浏览器生命周期 | 可启动、停止、识别已在运行的受控浏览器；失败时提示可执行的修复动作。 |
+| 浏览器生命周期 | 可启动、停止、识别已在运行的受控浏览器；只接受本机 loopback 上真实的 Chromium DevTools 端点；失败时提示可执行的修复动作。 |
 | 本地安全 | 调试端点仅限 localhost；daemon socket 仅限当前用户；修复操作不删除 Profile 或登录状态。 |
 | 诊断 | App 和 CLI 都能报告浏览器、配置、daemon、CLI、Skill 的独立状态；机器可读诊断可用于测试。 |
 | Agent 工作流 | daemon、任务空间、快照、定位、输入、等待、下载等运行时测试全部通过。 |
@@ -82,7 +82,7 @@ npm --prefix package/ego-browser run validate:site-skills
 | B2. macOS 控制台收口 | 已完成 | `b64c22a` |
 | B3. 可重复发布 | 已完成 | `4a1ae00` |
 | B4. 用户与公开仓库资料 | 已完成 | `4a1ae00` |
-| DMG 图形界面复核 | 已在活动图形会话下确认控制台渲染和 Tabbit 连接状态；窗口拖拽待 Beta 指针操作复核 | This commit |
+| DMG 图形界面复核 | 已在活动图形会话下确认控制台渲染、Tabbit 连接状态和窗口拖拽；网页指针拖放另有真实 Chromium 自动化回归 | This commit |
 
 自动化验收由 `./scripts/verify-beta.sh` 执行。它从构建应用和挂载后的
 DMG 中各运行一次安全诊断，覆盖可执行运行时、资源、版本、签名、测试和

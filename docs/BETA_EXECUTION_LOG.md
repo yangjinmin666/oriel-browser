@@ -1,6 +1,6 @@
 # Oriel Beta Execution Log
 
-Date: 2026-07-29
+Date: 2026-07-30
 
 ## Summary
 
@@ -18,6 +18,8 @@ Developer signing, and notarization.
 | Packaging and user guidance | Single version source, repeatable app/DMG verification, CI gate, release safety check, and Beta guide. | `4a1ae00` |
 | Final package exercise | The verification gate also runs the packaged doctor from the built app and from the mounted DMG. | `4ee1e7c` |
 | Active-session reliability repair | Restored the bundled Node lookup, made the hidden-title-bar window movable, and brings a minimized control center back on launch or from the menu. | This commit |
+| Interaction and connection hardening | Added real Chromium HTML5 drag-and-drop with a compatible fallback, verified every browser endpoint as loopback Chromium DevTools, and removed the runtime's static module cycle. | Pending final validation commit |
+| Packaged workflow and active-page reliability | Packaged app opens a page, snapshots it, and a second independent CLI call reuses the same task and page. Explicit tab activation now updates the host’s selected-page state before CDP dispatch. | Pending final validation commit |
 
 ## Automated verification passed
 
@@ -29,8 +31,8 @@ The command passed with:
 
 - architecture and bilingual localization checks;
 - public-release secret and browser-data guard;
-- 20 host and daemon tests;
-- 299 runtime tests plus TypeScript typecheck;
+- 25 host and daemon tests;
+- 303 runtime tests plus TypeScript typecheck;
 - site-skill validation;
 - signed app validation and required-resource checks;
 - matching app/DMG version metadata;
@@ -43,9 +45,9 @@ rendered normally and correctly reported a running, Oriel-managed Tabbit as
 connected. The repair also enables standard macOS background dragging for the
 hidden-title-bar window and restores the window when it was minimized.
 
-The window's drag implementation is covered by the native AppKit configuration;
-the final physical pointer-drag confirmation remains a short interactive Beta
-check because it cannot be established from a screenshot alone.
+The window's drag implementation is covered by the native AppKit configuration.
+Browser-content dragging is additionally covered by a real Chromium regression:
+it validates ordinary pointer movement and an HTML5 `DataTransfer` drop event.
 
 An unrelated `Proof Safe Storage` Keychain prompt appeared during the visual
 check. It belonged to the separate Proof application, not Oriel; no Keychain
@@ -59,3 +61,16 @@ access was granted or requested by Oriel.
 - A decided update-distribution channel.
 
 No daily browser was launched, closed, or modified during this verification.
+
+## Clean-environment acceptance
+
+Status: **blocked, not passed**. A true new macOS user is required to prove the
+DMG and README work without a development tree or pre-existing configuration.
+The current shell has no non-interactive administrator authorization, so it
+cannot create or enter that account without the account owner approving a
+macOS password prompt. The record deliberately does not substitute a fake
+`HOME` directory: Chromium relies on the real macOS Keychain and that simulation
+produces an invalid browser state rather than an honest new-user result.
+
+The detailed checklist, actual Gatekeeper observation, and remaining actions
+are in [`CLEAN_ENVIRONMENT_ACCEPTANCE.md`](CLEAN_ENVIRONMENT_ACCEPTANCE.md).

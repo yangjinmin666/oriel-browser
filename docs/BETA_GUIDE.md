@@ -18,6 +18,28 @@ The browser profile stays on your Mac at
 browser profile, so signing in there does not alter your existing browser
 window or its tabs.
 
+## First launch from the DMG
+
+This Beta is ad-hoc signed for local integrity verification but is **not
+notarized by Apple**. On an ordinary macOS account, Gatekeeper blocks the first
+launch. This is expected for the current Beta:
+
+1. Drag Oriel into `Applications` and double-click it once.
+2. A macOS warning says that Apple cannot check the app for malicious software,
+   or that its developer cannot be verified. Wording varies by macOS release
+   and language. Choose **Done** or **Cancel**.
+3. Go to **System Settings -> Privacy & Security**, scroll to **Security**, and
+   select **Open Anyway** for Oriel. The control is normally available for
+   about one hour after the failed open.
+4. Confirm **Open** in the next warning. macOS may ask for the current account
+   password.
+
+This is three confirmations after the initial double-click: dismiss, **Open
+Anyway**, then **Open**. Later launches should open normally because macOS
+remembers the exception. Only override Gatekeeper for a DMG you trust. See
+[Apple’s guidance](https://support.apple.com/en-us/102445) for the current
+system behavior.
+
 ## What the status means
 
 | Status | Meaning | What to do |
@@ -31,8 +53,9 @@ Use the stethoscope button in the lower right to run a full preflight check.
 
 ## Privacy and safety
 
-- Oriel binds browser debugging to `127.0.0.1`; it is never exposed to the
-  network.
+- Oriel binds browser debugging to `127.0.0.1`, verifies that the endpoint is
+  real Chromium DevTools, and only follows a loopback WebSocket. It is never
+  exposed to the network.
 - Oriel does not print, export, upload, or copy browser cookie values.
 - Its local background service uses a socket accessible only to your macOS
   user account.
@@ -48,6 +71,9 @@ Use the stethoscope button in the lower right to run a full preflight check.
 This Beta supports Chromium-based Chrome, Tabbit, and Edge on macOS 13 or
 newer. It does not support Safari, Firefox, cloud sync, remote browser control,
 automatic updates, or Apple-notarized public distribution yet.
+
+The clean-environment acceptance status and the exact remaining test steps are
+recorded in [`CLEAN_ENVIRONMENT_ACCEPTANCE.md`](CLEAN_ENVIRONMENT_ACCEPTANCE.md).
 
 ## Before reporting a problem
 
@@ -68,6 +94,8 @@ Run the complete local Beta gate before sharing a build:
 ./scripts/verify-beta.sh
 ```
 
-It checks the runtime tests, host tests, localized macOS app, self-signature,
-packaged assets, and DMG contents. Apple Developer signing and notarization are
-separate release prerequisites; this script intentionally cannot claim either.
+It checks the runtime tests, host tests, a packaged Oriel workflow (open a page
+and read a snapshot across two independent CLI calls), localized macOS app,
+self-signature, packaged assets, and DMG contents. Apple Developer signing and
+notarization are separate release prerequisites; this script intentionally
+cannot claim either.

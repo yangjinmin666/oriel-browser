@@ -1,9 +1,16 @@
 # Repository Guidelines
 
 ## Project Overview
-`ego-browser` is a Node.js CDP browser-automation harness for AI agents. It drives the ego lite browser through `globalThis.ego` bindings (provided by the closed-source ego lite app), exposes a compact snapshot/ref workflow, and layers reusable site-specific knowledge ("learnings") on top of the browser runtime.
+Oriel is a local macOS companion for supervised AI browser work. It packages an
+MIT-derived `ego-browser` runtime, connects it through a local daemon to a
+Chromium browser selected by the user, and installs an `oriel-browser` skill for
+Codex. It keeps login state inside the managed Chromium profile and does not
+read, export, or print credentials.
 
-This repo contains the open-source harness and the agent skill package — **not** the browser itself. The ego lite app bundles its own `ego-browser` binary that embeds this runtime; `skills/ego-browser/SKILL.md` documents that binary's usage (`ego-browser nodejs <<'EOF' ... EOF`). The repo CLI built here takes the heredoc directly on stdin with no subcommand.
+This repo builds the Oriel app, its `oriel` CLI, local daemon, browser host
+adapter, agent runtime, and skill packages. The CLI receives heredoc JavaScript
+on stdin with the `nodejs` subcommand; `skills/oriel-browser/SKILL.md` is the
+canonical Codex entry point.
 
 ## Architecture & Data Flow
 - `package/ego-browser/src/index.ts` is the entrypoint with two startup paths:
@@ -20,7 +27,7 @@ This repo contains the open-source harness and the agent skill package — **not
 - `src/state.ts` is the shared mutable runtime state singleton; `src/env.ts` resolves the agent workspace (`EGO_BROWSER_AGENT_WORKSPACE`, falling back to the skill dir bundled next to the build output, then the repo's `skills/ego-browser`).
 - `src/help-runtime.ts` parses the built bundle's JSDoc with acorn at runtime to power `help()` — JSDoc on exported helpers is therefore user-facing documentation.
 
-Data flow: `stdin JS` → `runMain()` → `helperContext()` helpers → browser runtime/CDP → snapshot or DOM/AX resolution → optional site tools → `console.log(...)`.
+Data flow: `oriel nodejs` → `runMain()` → `helperContext()` helpers → private daemon RPC → Chromium CDP → snapshot or DOM/AX resolution → optional site tools → `console.log(...)`.
 
 ## Task Spaces
 Task spaces are isolated browsing contexts with an ownership model (`agent` / `user`):
@@ -37,7 +44,7 @@ Task spaces are isolated browsing contexts with an ownership model (`agent` / `u
 - `host-shim/` — CLI, daemon, RPC, runtime configuration, and CDP host adapter boundary.
 - `package/ego-browser/src/` — runtime, helpers, resolver, drivers, learning subsystem.
 - `package/ego-browser/src/**/*.test.mjs` — tests are colocated with the code (there is no separate `test/` directory).
-- `package/ego-browser/scripts/` — `build.mjs` (esbuild per-file → `dist/src`, rollup bundle → `dist/out/index.js`, copies `skills/ego-browser` → `dist/out/ego-browser`), `validate-site-skills.ts`, `run-e2e.sh`.
+- `package/ego-browser/scripts/` — runtime build, site-skill validation, and real-browser E2E cases.
 - `skills/ego-browser/` — agent skill package: `SKILL.md` (canonical agent-facing usage guide), `references/install.md`, `scripts/install.sh`.
 - `skills/ego-browser/learnings/` — reusable per-site experience packs (`manifest.json` + `notes/` + `tools/` + `browser-tools/`).
 - `docs/ARCHITECTURE.md` — canonical product-level ownership, localization, and dependency map.
@@ -45,9 +52,13 @@ Task spaces are isolated browsing contexts with an ownership model (`agent` / `u
 ## Development Commands
 Run from `package/ego-browser/`:
 - `npm test` — build, typecheck, then `node --test` over `src/**/*.test.mjs`.
-- `npm run e2e` — task-space e2e suite (`src/taskspace-e2e.test.mjs`).
+- `npm run e2e` — inherited ego-lite real-browser compatibility suite. It
+  requires an ego-lite-compatible host and is not the Oriel product gate.
+- `npm run verify:oriel-workflow` — packaged Oriel workflow smoke test: it
+  launches an isolated temporary Chrome, opens a page, and proves a second CLI
+  call reuses the same task space and page.
 - `npm run validate:site-skills` (alias `validate:learnings`) — validate learned site skills.
-- `node dist/out/index.js <<'JS' ... JS` — run the built CLI from this checkout (requires an `ego` runtime for real browser work; `--doctor`, `--reload`, `-h` also supported).
+- `~/.local/bin/oriel nodejs <<'JS' ... JS` — run through an installed Oriel browser connection. For a checkout, use `host-shim/oriel.mjs` with the bundled Node runtime after building the app.
 
 ## Code Conventions & Common Patterns
 - ESM only (`"type": "module"`); Node 22+.
