@@ -12,6 +12,7 @@ import {
 import { join } from "node:path";
 
 import { startDaemonRpcServer } from "./daemon-rpc.mjs";
+import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
 import { APP_SUPPORT_DIR, loadRuntimeConfig } from "./runtime-config.mjs";
 import { createStockChromeHost } from "./stock-chrome-host.mjs";
 
@@ -64,14 +65,7 @@ function releaseDaemonLock() {
 }
 
 async function endpointReady(endpoint) {
-  try {
-    const response = await fetch(`${endpoint}/json/version`, {
-      signal: AbortSignal.timeout(1_500),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return (await inspectDebugEndpoint(endpoint)).ready;
 }
 
 if (!acquireDaemonLock()) {
@@ -109,7 +103,10 @@ try {
       ? { connectTo: config.endpoint }
       : {
           chromePath: config.browserPath,
-          headless: false,
+          // The desktop app always launches a visible browser. The opt-in
+          // override exists solely for the packaged-runtime smoke test, so it
+          // can verify this daemon path without stealing focus.
+          headless: process.env.ORIEL_BROWSER_HEADLESS === "1",
           keepBrowserAlive: true,
           port: config.port,
           userDataDir: config.profilePath,

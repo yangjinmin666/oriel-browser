@@ -22,12 +22,64 @@ enum Brand {
 struct BrowserChoice: Identifiable, Hashable {
     let id: String
     let name: String
-    let appPath: String
-    let executablePath: String
+    let appPaths: [String]
+    let executableName: String
     let symbol: String
 
+    static func standardAppPaths(named appName: String) -> [String] {
+        [
+            "/Applications/\(appName).app",
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Applications/\(appName).app").path,
+        ]
+    }
+
+    private var discoveredAppPath: String? {
+        appPaths.first(where: { FileManager.default.fileExists(atPath: $0) })
+    }
+
+    var appPath: String {
+        discoveredAppPath ?? appPaths[0]
+    }
+
+    var executablePath: String {
+        URL(fileURLWithPath: appPath)
+            .appendingPathComponent("Contents/MacOS/\(executableName)").path
+    }
+
     var installed: Bool {
-        FileManager.default.fileExists(atPath: appPath)
+        discoveredAppPath != nil
+    }
+}
+
+struct BrowserDebugVersion: Decodable {
+    let browser: String
+    let webSocketDebuggerURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case browser = "Browser"
+        case webSocketDebuggerURL = "webSocketDebuggerUrl"
+    }
+
+    func isTrusted(for endpoint: URL) -> Bool {
+        guard !browser.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let socketURL = URL(string: webSocketDebuggerURL),
+              socketURL.scheme?.lowercased() == "ws",
+              BrowserDebugVersion.isLoopback(endpoint.host),
+              BrowserDebugVersion.isLoopback(socketURL.host),
+              endpoint.port == socketURL.port else {
+            return false
+        }
+        return true
+    }
+
+    private static func isLoopback(_ host: String?) -> Bool {
+        switch host?.lowercased() {
+        case "127.0.0.1", "localhost", "::1", "[::1]":
+            return true
+        default:
+            return false
+        }
     }
 }
 
@@ -65,4 +117,17 @@ struct DoctorReport: Decodable, Sendable {
     let configuration: Configuration
     let browser: Browser
     let daemon: Daemon
+}
+
+struct TaskSpaceSummary: Decodable, Identifiable, Hashable, Sendable {
+    let taskId: String
+    let id: Int
+    let name: String
+    let createdBy: String?
+    let ownership: String?
+    let recentTabTitles: [String]
+
+    var isAgentOwned: Bool {
+        ownership == "agent"
+    }
 }

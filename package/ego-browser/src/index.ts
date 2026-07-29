@@ -78,6 +78,7 @@ const LEGACY_GLOBAL_HELPERS = [
   "dblclick",
   "hover",
   "drag",
+  "dragAndDrop",
   "wheel",
   "scrollIntoViewIfNeeded",
   "press",

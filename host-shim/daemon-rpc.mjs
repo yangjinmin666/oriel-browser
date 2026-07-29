@@ -162,6 +162,13 @@ export async function startDaemonRpcServer({
             if (payload?.id === undefined) {
               throw new Error("CDP request is missing an id");
             }
+            if (
+              payload.method === "Target.activateTarget" &&
+              typeof payload.params?.targetId === "string" &&
+              typeof client.host.trackActiveTarget === "function"
+            ) {
+              await client.host.trackActiveTarget(payload.params.targetId);
+            }
             const sessionOwner = payload.sessionId
               ? sessionOwners.get(payload.sessionId)
               : null;

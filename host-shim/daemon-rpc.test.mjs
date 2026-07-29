@@ -9,6 +9,7 @@ import { connectDaemonRpc, startDaemonRpcServer } from "./daemon-rpc.mjs";
 function createFakeHost() {
   const spaces = new Map();
   const selectedByScope = new Map();
+  const trackedTargets = [];
   let sequence = 0;
 
   const host = {
@@ -31,6 +32,9 @@ function createFakeHost() {
     },
     forScope(scopeId) {
       return {
+        async trackActiveTarget(targetId) {
+          trackedTargets.push({ scopeId, targetId });
+        },
         async createTaskSpace(name) {
           const space = {
             id: ++sequence,
@@ -69,16 +73,16 @@ function createFakeHost() {
     },
     async close() {},
   };
-  return host;
+  return { host, trackedTargets };
 }
 
 async function withDaemon(run) {
   const directory = mkdtempSync(join(tmpdir(), "oriel-daemon-test-"));
   const socketPath = join(directory, "daemon.sock");
-  const host = createFakeHost();
+  const { host, trackedTargets } = createFakeHost();
   const server = await startDaemonRpcServer({ host, socketPath });
   try {
-    await run({ host, server, socketPath });
+    await run({ host, trackedTargets, server, socketPath });
   } finally {
     await server.close();
     rmSync(directory, { recursive: true, force: true });
@@ -156,6 +160,31 @@ test("CDP ids are rewritten and responses return only to their client", async ()
     });
     await first.close();
     await second.close();
+  });
+});
+
+test("switching a tab records the selected target before forwarding CDP", async () => {
+  await withDaemon(async ({ socketPath, trackedTargets }) => {
+    const client = await connectDaemonRpc({ socketPath });
+    const response = new Promise((resolve) => {
+      client.onCDPMessage = (raw) => resolve(JSON.parse(raw));
+    });
+
+    client.sendCDPMessage(
+      JSON.stringify({
+        id: 7,
+        method: "Target.activateTarget",
+        params: { targetId: "target-selected" },
+      }),
+    );
+
+    assert.deepEqual(await response, {
+      id: 7,
+      result: {},
+    });
+    assert.equal(trackedTargets.length, 1);
+    assert.equal(trackedTargets[0].targetId, "target-selected");
+    await client.close();
   });
 });
 

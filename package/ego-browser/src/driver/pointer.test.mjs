@@ -5,6 +5,7 @@ import { setOverrides } from "../../dist/src/state.js";
 import {
   click,
   down,
+  drag,
   hover,
   up,
   wheel,
@@ -191,6 +192,55 @@ test("down and up use the current mouse position", async () => {
       { type: "mouseReleased", x: 23, y: 45, button: "left", buttons: 0 },
     ],
   );
+});
+
+test("drag enters the source before pressing and moves in bounded steps", async () => {
+  const calls = [];
+  const restore = setOverrides({
+    cdpOverride(method, params) {
+      calls.push({ method, params });
+      return {};
+    },
+  });
+  try {
+    await drag([
+      [10, 10],
+      [46, 10],
+    ]);
+  } finally {
+    restore();
+  }
+
+  const mouseEvents = calls
+    .filter((call) => call.method === "Input.dispatchMouseEvent")
+    .map((call) => call.params);
+  assert.deepEqual(mouseEvents[0], {
+    type: "mouseMoved",
+    x: 10,
+    y: 10,
+    button: "none",
+    buttons: 0,
+  });
+  assert.deepEqual(mouseEvents[1], {
+    type: "mousePressed",
+    x: 10,
+    y: 10,
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+  });
+  const heldMoves = mouseEvents.filter(
+    (event) => event.type === "mouseMoved" && event.buttons === 1,
+  );
+  assert.ok(heldMoves.length >= 2, "splits a long drag into motion steps");
+  assert.deepEqual(mouseEvents.at(-1), {
+    type: "mouseReleased",
+    x: 46,
+    y: 10,
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+  });
 });
 
 test("wheel forwards deltaX/deltaY and the viewport point to CDP", async () => {

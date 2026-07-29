@@ -568,6 +568,28 @@ const FUNCTION_DOCS: Record<string, FunctionDoc> = {
     returns: "Promise<void>",
     example: "await page.mouse.drag([[100, 100], [300, 300]])",
   },
+  "page.mouse.dragAndDrop": {
+    signature: "page.mouse.dragAndDrop(source, target, options?) => Promise<void>",
+    description:
+      "Perform a native HTML5 drag and drop, preserving the browser DataTransfer payload when supported.",
+    params: [
+      {
+        name: "source",
+        type: "string | point",
+        required: true,
+        description: "Draggable element selector or viewport point.",
+      },
+      {
+        name: "target",
+        type: "string | point",
+        required: true,
+        description: "Drop target selector or viewport point.",
+      },
+      { name: "options", type: "object", description: "Drag options." },
+    ],
+    returns: "Promise<void>",
+    example: "await page.mouse.dragAndDrop('#card', '#column-done')",
+  },
   "browser.listTabs": {
     signature: "browser.listTabs() => Promise<object[]>",
     description: "List tabs in the current task space.",

@@ -12,6 +12,7 @@ node --test "$ROOT"/host-shim/*.test.mjs
 npm --prefix "$ROOT/package/ego-browser" test
 npm --prefix "$ROOT/package/ego-browser" run validate:site-skills
 "$ROOT/scripts/build-macos-app.sh"
+node "$ROOT/scripts/verify-oriel-workflow.mjs" "$APP"
 
 codesign --verify --deep --strict --verbose=2 "$APP"
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
@@ -32,6 +33,7 @@ required_bundle_files=(
   "Contents/Resources/Runtime/oriel.mjs"
   "Contents/Resources/Runtime/oriel-daemon.mjs"
   "Contents/Resources/Runtime/runtime-config.mjs"
+  "Contents/Resources/Runtime/debug-endpoint.mjs"
   "Contents/Resources/Skill/oriel-browser/SKILL.md"
   "Contents/Resources/en.lproj/Localizable.strings"
   "Contents/Resources/zh-Hans.lproj/Localizable.strings"

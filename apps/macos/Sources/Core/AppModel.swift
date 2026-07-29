@@ -6,22 +6,22 @@ final class AppModel: ObservableObject {
         BrowserChoice(
             id: "chrome",
             name: "Google Chrome",
-            appPath: "/Applications/Google Chrome.app",
-            executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            appPaths: BrowserChoice.standardAppPaths(named: "Google Chrome"),
+            executableName: "Google Chrome",
             symbol: "globe"
         ),
         BrowserChoice(
             id: "tabbit",
             name: "Tabbit",
-            appPath: "/Applications/Tabbit.app",
-            executablePath: "/Applications/Tabbit.app/Contents/MacOS/Tabbit",
+            appPaths: BrowserChoice.standardAppPaths(named: "Tabbit"),
+            executableName: "Tabbit",
             symbol: "rectangle.stack"
         ),
         BrowserChoice(
             id: "edge",
             name: "Microsoft Edge",
-            appPath: "/Applications/Microsoft Edge.app",
-            executablePath: "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+            appPaths: BrowserChoice.standardAppPaths(named: "Microsoft Edge"),
+            executableName: "Microsoft Edge",
             symbol: "network"
         )
     ]
@@ -33,6 +33,8 @@ final class AppModel: ObservableObject {
     @Published var configurationValid = true
     @Published var cliInstalled = false
     @Published var skillInstalled = false
+    @Published var taskSpaces: [TaskSpaceSummary] = []
+    @Published var taskSpacesLoading = false
     @Published var busy = false
     @Published var message = L10n.text("message.environment.checking")
     @Published var lastError: String?
@@ -128,6 +130,22 @@ final class AppModel: ObservableObject {
         } else {
             message = L10n.text("message.browser.ready")
         }
+        if browserConnected && daemonRunning {
+            taskSpaces = await loadTaskSpaces()
+        } else if !browserConnected {
+            taskSpaces = []
+        }
+    }
+
+    func refreshTaskSpaces() {
+        guard browserConnected, !taskSpacesLoading else {
+            return
+        }
+        taskSpacesLoading = true
+        Task {
+            taskSpaces = await loadTaskSpaces()
+            taskSpacesLoading = false
+        }
     }
 
     func select(_ browser: BrowserChoice) {
@@ -149,17 +167,41 @@ final class AppModel: ObservableObject {
     }
 
     func endpointReady() async -> Bool {
-        guard let url = URL(string: "\(endpoint)/json/version") else {
-            return false
-        }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 1.2
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
+            _ = try await debuggerVersion()
+            return true
         } catch {
             return false
         }
+    }
+
+    func debuggerVersion() async throws -> BrowserDebugVersion {
+        guard let endpointURL = URL(string: endpoint) else {
+            throw browserControlEndpointError()
+        }
+        var request = URLRequest(
+            url: endpointURL.appendingPathComponent("json/version")
+        )
+        request.timeoutInterval = 1.2
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+              let version = try? JSONDecoder().decode(BrowserDebugVersion.self, from: data),
+              version.isTrusted(for: endpointURL) else {
+            throw browserControlEndpointError()
+        }
+        return version
+    }
+
+    func browserControlEndpointError() -> NSError {
+        NSError(
+            domain: "Oriel",
+            code: 3,
+            userInfo: [
+                NSLocalizedDescriptionKey: L10n.text(
+                    "error.browser.control_endpoint_missing"
+                )
+            ]
+        )
     }
 
     @discardableResult
@@ -231,6 +273,62 @@ final class AppModel: ObservableObject {
                 return try? JSONDecoder().decode(DoctorReport.self, from: data)
             } catch {
                 return nil
+            }
+        }.value
+    }
+
+    private func loadTaskSpaces() async -> [TaskSpaceSummary] {
+        guard let nodeURL = Bundle.main.url(
+            forResource: "node",
+            withExtension: nil,
+            subdirectory: "Runtime/bin"
+        ),
+            let entryURL = Bundle.main.url(
+                forResource: "oriel",
+                withExtension: "mjs",
+                subdirectory: "Runtime"
+            )
+        else {
+            return []
+        }
+
+        return await Task.detached {
+            let output = Pipe()
+            let input = Pipe()
+            let process = Process()
+            process.executableURL = nodeURL
+            process.arguments = [entryURL.path, "nodejs"]
+            process.standardInput = input
+            process.standardOutput = output
+            process.standardError = Pipe()
+            do {
+                try process.run()
+                let program = """
+                console.log(JSON.stringify(await taskSpaces.list()))
+                """
+                input.fileHandleForWriting.write(Data(program.utf8))
+                try? input.fileHandleForWriting.close()
+                process.waitUntilExit()
+                guard process.terminationStatus == 0 else {
+                    return []
+                }
+                let data = output.fileHandleForReading.readDataToEndOfFile()
+                guard let text = String(data: data, encoding: .utf8) else {
+                    return []
+                }
+                for line in text.split(separator: "\n").reversed() {
+                    guard let lineData = String(line).data(using: .utf8),
+                          let spaces = try? JSONDecoder().decode(
+                              [TaskSpaceSummary].self,
+                              from: lineData
+                          ) else {
+                        continue
+                    }
+                    return spaces
+                }
+                return []
+            } catch {
+                return []
             }
         }.value
     }

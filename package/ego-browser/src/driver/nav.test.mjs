@@ -141,6 +141,32 @@ test("newTab throws when the binding returns no targetId", async () => {
   );
 });
 
+test("newTab makes the created target the next page-session target", async () => {
+  await withEgo(
+    {
+      async createTab() {
+        return { targetId: "target-created" };
+      },
+    },
+    async () => {
+      const restore = setOverrides({
+        sessionId: "stale-session",
+        sessionTargetId: "startup-blank",
+        sessionAt: Date.now(),
+        preferredTargetId: "startup-blank",
+      });
+      try {
+        assert.equal(await newTab("https://example.com/"), "target-created");
+        assert.equal(state.sessionId, null);
+        assert.equal(state.sessionTargetId, null);
+        assert.equal(state.preferredTargetId, "target-created");
+      } finally {
+        restore();
+      }
+    },
+  );
+});
+
 test("openOrReuseTab settles a newly opened tab in milliseconds, not seconds", async () => {
   // Regression: the new-tab branch used to sleep(settle * 1000), so settle:500
   // (documented as 500ms) blocked for 500 seconds while the reuse branch
@@ -175,6 +201,57 @@ test("openOrReuseTab settles a newly opened tab in milliseconds, not seconds", a
   );
 
   assert.deepEqual(sleeps, [500]);
+});
+
+test("openOrReuseTab waits for a new target to be listed before using its page", async () => {
+  let created = false;
+  await withEgo(
+    {
+      async listTabs() {
+        return {
+          tabs: created
+            ? [
+                {
+                  targetId: "target-created",
+                  active: true,
+                  title: "Fresh",
+                  url: "https://example.com/fresh",
+                },
+              ]
+            : [],
+        };
+      },
+      async createTab() {
+        created = true;
+        return { targetId: "target-created" };
+      },
+    },
+    async () => {
+      const restore = setOverrides({
+        cdpOverride(method) {
+          if (method === "Page.getFrameTree") {
+            return {
+              frameTree: { frame: { url: "https://example.com/fresh" } },
+            };
+          }
+          if (method === "Runtime.evaluate") {
+            return { result: { value: "complete" } };
+          }
+          return {};
+        },
+      });
+      try {
+        const opened = await openOrReuseTab("https://example.com/fresh", {
+          wait: true,
+          timeout: 100,
+        });
+        assert.equal(opened.targetId, "target-created");
+        assert.equal(state.preferredTargetId, "target-created");
+      } finally {
+        restore();
+      }
+    },
+  );
 });
 
 test("switchTab refreshes the target list before activating it", async () => {

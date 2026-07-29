@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ControlCenterView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var selectedPage = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -11,6 +12,14 @@ struct ControlCenterView: View {
                     Text(Brand.displayName)
                         .font(.custom("Space Grotesk", fixedSize: 24).weight(.semibold))
                 }
+                Spacer()
+                Picker("", selection: $selectedPage) {
+                    Text(L10n.text("navigation.control_center")).tag(0)
+                    Text(L10n.text("navigation.task_spaces")).tag(1)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 236)
                 Spacer()
                 StatusPill(
                     ready: model.browserConnected && model.cliInstalled && model.skillInstalled,
@@ -23,7 +32,8 @@ struct ControlCenterView: View {
 
             Divider()
 
-            HStack(alignment: .top, spacing: 0) {
+            if selectedPage == 0 {
+              HStack(alignment: .top, spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 26) {
                         sectionHeader(
@@ -224,6 +234,9 @@ struct ControlCenterView: View {
                 }
                 .padding(26)
                 .frame(width: 310)
+              }
+            } else {
+                TaskSpacesView()
             }
 
             Divider()

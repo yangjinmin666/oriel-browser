@@ -67,6 +67,23 @@ export function pointerHoverDragCase() {
     await page.evaluate(() => { window.__fixtureState.dragged = false; });
     await page.mouse.drag(["#drag-source", "#drag-target"], { delay: 10 });
     await waitForJsValue("window.__fixtureState.dragged", true, "drag fires drag source and target events");
+
+    await resetHome();
+    await page.evaluate(() => {
+      window.__fixtureState.dndDropped = false;
+      window.__fixtureState.dndData = "";
+    });
+    await page.locator("#dnd-source").dragTo("#dnd-target");
+    await waitForJsValue(
+      "window.__fixtureState.dndDropped",
+      true,
+      "locator dragTo completes an HTML5 drop"
+    );
+    await waitForJsValue(
+      "window.__fixtureState.dndData",
+      "dnd-payload",
+      "native drag preserves DataTransfer payload"
+    );
   `;
 }
 

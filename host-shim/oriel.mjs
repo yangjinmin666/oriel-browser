@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { connectDaemonRpc } from "./daemon-rpc.mjs";
+import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
 import {
   APP_SUPPORT_DIR,
   CONFIG_PATH,
@@ -50,14 +51,7 @@ function loadConfigForCommand() {
 }
 
 async function endpointReady(endpoint) {
-  try {
-    const response = await fetch(`${endpoint}/json/version`, {
-      signal: AbortSignal.timeout(1_500),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return (await inspectDebugEndpoint(endpoint)).ready;
 }
 
 async function connectExistingDaemon(connectTimeoutMs = 400) {

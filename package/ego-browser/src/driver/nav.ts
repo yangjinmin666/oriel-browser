@@ -170,6 +170,11 @@ export async function newTab(url = "about:blank") {
   if (!result.targetId) {
     throw new Error("newTab returned no targetId");
   }
+  // Target.createTarget returns before the runtime has a page session for the
+  // new tab. Prefer that target immediately; otherwise the next wait/snapshot
+  // can attach to the startup about:blank page when both tabs are present.
+  invalidateSession();
+  setPreferredTarget(result.targetId);
   return result.targetId;
 }
 
@@ -199,6 +204,7 @@ export async function openOrReuseTab(
   }
   const targetId = await newTab(url);
   if (options.wait !== false) {
+    await waitForTarget(targetId, options.timeout ?? 20000);
     await waitForDocumentLoad({ timeout: options.timeout ?? 20000 });
   }
   const settle = Number(options.settle ?? 0);
@@ -206,6 +212,19 @@ export async function openOrReuseTab(
     await state.sleep(settle);
   }
   return { targetId, url, title: "", active: true, reused: false };
+}
+
+async function waitForTarget(targetId: string, timeout: number) {
+  const deadline = state.now() + timeout;
+  while (state.now() < deadline) {
+    const tabs = await listTabs();
+    if (tabs.some((tab) => tab.targetId === targetId)) {
+      setPreferredTarget(targetId);
+      return;
+    }
+    await state.sleep(50);
+  }
+  throw new Error(`new tab did not become available: ${targetId}`);
 }
 
 /**

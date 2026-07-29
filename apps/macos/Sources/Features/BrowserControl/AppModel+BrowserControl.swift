@@ -62,22 +62,9 @@ extension AppModel {
         lastError = nil
         Task {
             do {
-                guard let versionURL = URL(string: "\(endpoint)/json/version") else {
-                    throw URLError(.badURL)
-                }
-                let (data, _) = try await URLSession.shared.data(from: versionURL)
-                guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let socketAddress = payload["webSocketDebuggerUrl"] as? String,
-                      let socketURL = URL(string: socketAddress) else {
-                    throw NSError(
-                        domain: "Oriel",
-                        code: 3,
-                        userInfo: [
-                            NSLocalizedDescriptionKey: L10n.text(
-                                "error.browser.control_endpoint_missing"
-                            )
-                        ]
-                    )
+                let version = try await debuggerVersion()
+                guard let socketURL = URL(string: version.webSocketDebuggerURL) else {
+                    throw browserControlEndpointError()
                 }
                 let socket = URLSession.shared.webSocketTask(with: socketURL)
                 socket.resume()

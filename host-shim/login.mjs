@@ -35,18 +35,10 @@ try {
 
   await host.takeOverTaskSpace(space.id);
 
-  const [tab] = (await host.listTabs()).tabs;
-  const sessionId = await host.attachTo(tab.targetId);
-  const { cookies } = await host.rawCdp("Network.getCookies", {}, sessionId);
-  const host_ = new URL(url).hostname;
-  const mine = cookies.filter((c) => {
-    const d = c.domain.replace(/^\./, "");
-    return host_ === d || host_.endsWith(`.${d}`);
-  });
-
-  // 只报数量和名字，绝不打印任何 cookie 值。
-  console.log(`\n该站点已保存 ${mine.length} 条 cookie:`, mine.map((c) => c.name).join(", ") || "（无）");
-  console.log(mine.length ? "登录态已持久化，后续任务直接可用。" : "没检测到该站点的 cookie，可能登录未完成。");
+  // Do not inspect cookies merely to prove a login. Chromium persists the
+  // session inside its own profile and Keychain; avoiding a credential read
+  // keeps this helper out of the user's full authentication state entirely.
+  console.log("\n已按你的确认结束登录流程。登录态由 Chromium 自己持久化，后续任务可直接尝试使用。");
 } finally {
   await host.close();
 }

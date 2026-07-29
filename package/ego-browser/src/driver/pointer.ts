@@ -1,5 +1,8 @@
 import { cdp, evaluate } from "../cdp-eval.js";
-import { browserCdp } from "../browser-runtime.js";
+import {
+  browserCdp,
+  subscribeBrowserEvent,
+} from "../browser-runtime.js";
 import { elementCenter } from "./observe.js";
 import { resolveAndCall } from "./element-ops.js";
 import { waitForSelector } from "./waits.js";
@@ -27,6 +30,7 @@ type DragOptions = {
   label?: string;
   timeout?: number;
 };
+type DragAndDropOptions = DragOptions;
 type HoverOptions = {
   label?: string;
   timeout?: number;
@@ -154,6 +158,13 @@ export async function drag(points: MouseTarget[], options: DragOptions = {}) {
   const probeId = await installMouseUpProbe(last);
   let dispatchError: unknown = null;
   try {
+    // A drag needs the pointer to enter the source before the button goes down.
+    // Some Chromium apps ignore a press that appears at a stale mouse location.
+    await dispatchMouse(first, "mouseMoved", {
+      button: "none",
+      buttons: 0,
+    });
+    await inputEventDelay();
     await dispatchMouse(first, "mousePressed", {
       button,
       buttons,
@@ -161,16 +172,19 @@ export async function drag(points: MouseTarget[], options: DragOptions = {}) {
     });
     await inputEventDelay();
     for (let i = 1; i < resolved.length; i += 1) {
+      const previous = resolved[i - 1];
       const point = resolved[i];
-      await dispatchMouse(
-        { ...point, sessionId: point.sessionId ?? first.sessionId },
-        "mouseMoved",
-        {
-          button,
-          buttons,
-        },
-      );
-      await inputEventDelay(options.delay > 0 ? options.delay : undefined);
+      for (const next of dragSteps(previous, point)) {
+        await dispatchMouse(
+          { ...next, sessionId: next.sessionId ?? first.sessionId },
+          "mouseMoved",
+          {
+            button,
+            buttons,
+          },
+        );
+        await inputEventDelay(options.delay > 0 ? options.delay : undefined);
+      }
     }
     await dispatchMouse(
       { ...last, sessionId: last.sessionId ?? first.sessionId },
@@ -187,6 +201,102 @@ export async function drag(points: MouseTarget[], options: DragOptions = {}) {
   }
   const completed = await finishDragProbe(resolved, probeId, button);
   if (dispatchError && !completed) throw dispatchError;
+}
+
+/**
+ * Drag an HTML5 draggable element onto a target.
+ *
+ * This uses Chromium's native drag interception protocol when available, which
+ * preserves the browser-managed DataTransfer object. If the source is not an
+ * HTML5 draggable element, it falls back to the ordinary pointer drag so custom
+ * canvas and sortable controls keep working.
+ */
+export async function dragAndDrop(
+  source: MouseTarget,
+  target: MouseTarget,
+  options: DragAndDropOptions = {},
+) {
+  const first = await resolveMouseTarget(source, options.timeout);
+  const last = await resolveMouseTarget(target, options.timeout);
+  const button = options.button || "left";
+
+  if (button !== "left") {
+    return drag([source, target], options);
+  }
+  if (first.sessionId && last.sessionId && first.sessionId !== last.sessionId) {
+    throw new Error("dragAndDrop requires source and target in the same page");
+  }
+
+  const sessionId = first.sessionId ?? last.sessionId;
+  let intercepted = false;
+  let mousePressed = false;
+  try {
+    await browserCdp("Input.setInterceptDrags", { enabled: true }, sessionId);
+    const dragData = waitForDragIntercept(sessionId, options.timeout);
+    // The native event may time out while an input dispatch is still pending.
+    // Attach a rejection handler immediately so hosts that lack interception do
+    // not surface an unhandled rejection before the fallback branch can run.
+    void dragData.catch(() => {});
+
+    await dispatchMouse(first, "mouseMoved", { button: "none", buttons: 0 });
+    await inputEventDelay();
+    await dispatchMouse(first, "mousePressed", {
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+    });
+    mousePressed = true;
+    await inputEventDelay();
+
+    // Cross Chromium's drag threshold before waiting for the intercepted data.
+    const threshold = dragThresholdPoint(first, last);
+    await dispatchMouse(threshold, "mouseMoved", {
+      button: "left",
+      buttons: 1,
+    });
+
+    const data = await dragData;
+    intercepted = true;
+    await browserCdp(
+      "Input.dispatchDragEvent",
+      { type: "dragEnter", x: last.x, y: last.y, data },
+      sessionId,
+    );
+    await browserCdp(
+      "Input.dispatchDragEvent",
+      { type: "dragOver", x: last.x, y: last.y, data },
+      sessionId,
+    );
+    await browserCdp(
+      "Input.dispatchDragEvent",
+      { type: "drop", x: last.x, y: last.y, data },
+      sessionId,
+    );
+    await dispatchMouse(last, "mouseReleased", {
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+    });
+    mousePressed = false;
+    rememberMousePoint(last);
+  } catch (error) {
+    if (!intercepted && isNativeDragUnavailable(error)) {
+      if (mousePressed) {
+        await releaseDragButton(first).catch(() => {});
+      }
+      if (!(await dispatchSyntheticDragAndDrop(first, last))) {
+        await drag([source, target], options);
+      }
+      return;
+    }
+    throw error;
+  } finally {
+    try {
+      await browserCdp("Input.setInterceptDrags", { enabled: false }, sessionId);
+    } catch {
+      // Preserve the primary drag error. A closed page has no interception state.
+    }
+  }
 }
 
 /**
@@ -219,6 +329,116 @@ export async function up(options: ClickOptions = {}) {
 
 function inputEventDelay(ms = INPUT_EVENT_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function dragSteps(from: Point, to: Point) {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const count = Math.min(32, Math.max(1, Math.ceil(distance / 18)));
+  const points: Point[] = [];
+  for (let index = 1; index <= count; index += 1) {
+    const amount = index / count;
+    points.push({
+      x: from.x + (to.x - from.x) * amount,
+      y: from.y + (to.y - from.y) * amount,
+      sessionId: to.sessionId ?? from.sessionId,
+    });
+  }
+  return points;
+}
+
+function dragThresholdPoint(source: Point, target: Point) {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 1) {
+    return { ...source };
+  }
+  const amount = Math.min(12, distance) / distance;
+  return {
+    x: source.x + dx * amount,
+    y: source.y + dy * amount,
+    sessionId: source.sessionId ?? target.sessionId,
+  };
+}
+
+async function releaseDragButton(point: Point) {
+  await dispatchMouse(point, "mouseReleased", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+  });
+}
+
+async function dispatchSyntheticDragAndDrop(source: Point, target: Point) {
+  try {
+    const result = await browserCdp(
+      "Runtime.evaluate",
+      {
+        expression: `(() => {
+          const source = document.elementFromPoint(${JSON.stringify(source.x)}, ${JSON.stringify(source.y)});
+          const target = document.elementFromPoint(${JSON.stringify(target.x)}, ${JSON.stringify(target.y)});
+          if (!source || !target || typeof DataTransfer !== "function") return false;
+          const dataTransfer = new DataTransfer();
+          const eventFor = (type, node) => new DragEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer,
+            clientX: type === "dragstart" || type === "dragend" ? ${JSON.stringify(source.x)} : ${JSON.stringify(target.x)},
+            clientY: type === "dragstart" || type === "dragend" ? ${JSON.stringify(source.y)} : ${JSON.stringify(target.y)}
+          });
+          source.dispatchEvent(eventFor("dragstart", source));
+          target.dispatchEvent(eventFor("dragenter", target));
+          const accepted = !target.dispatchEvent(eventFor("dragover", target));
+          if (accepted) target.dispatchEvent(eventFor("drop", target));
+          source.dispatchEvent(eventFor("dragend", source));
+          return accepted;
+        })()`,
+        returnByValue: true,
+        awaitPromise: false,
+      },
+      source.sessionId ?? target.sessionId,
+    );
+    return result.result?.value === true;
+  } catch {
+    return false;
+  }
+}
+
+function waitForDragIntercept(sessionId: string | undefined, timeout = undefined) {
+  const timeoutMs = timeout ?? 1_500;
+  return new Promise<any>((resolve, reject) => {
+    let settled = false;
+    let unsubscribe = () => {};
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+      callback(value);
+    };
+    unsubscribe = subscribeBrowserEvent(
+      "Input.dragIntercepted",
+      sessionId,
+      (event) => {
+        const data = event.params?.data;
+        if (!data || typeof data !== "object") return;
+        finish(resolve, data);
+      },
+    );
+    timer = setTimeout(() => {
+      finish(reject, new Error("dragAndDrop did not receive native drag data"));
+    }, timeoutMs);
+  });
+}
+
+function isNativeDragUnavailable(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    /dragAndDrop did not receive native drag data/.test(message) ||
+    /Input\.setInterceptDrags|Input\.dispatchDragEvent/.test(message) &&
+      /not found|not supported|wasn't found|Unknown method/i.test(message)
+  );
 }
 
 async function installClickProbe(point: Point) {

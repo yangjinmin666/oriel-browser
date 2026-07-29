@@ -31,6 +31,7 @@ export {
   dblclick,
   hover,
   drag,
+  dragAndDrop,
   wheel,
   scrollIntoViewIfNeeded,
 } from "./driver/pointer.js";
@@ -561,7 +562,7 @@ function createLocator(selector) {
     dblclick: (options = {}) => pointer.dblclick(selector, options),
     hover: (options = {}) => pointer.hover(selector, options),
     dragTo: (target, options = {}) =>
-      pointer.drag([selector, target?.selector || target], options),
+      pointer.dragAndDrop(selector, target?.selector || target, options),
     scrollIntoViewIfNeeded: () => pointer.scrollIntoViewIfNeeded(selector),
     focus: () => keyboard.focus(selector),
     fill: (value, options = {}) => keyboard.fill(selector, value, options),
@@ -759,6 +760,7 @@ function createPageFacade() {
       up: pointer.up,
       wheel: pointer.wheel,
       drag: pointer.drag,
+      dragAndDrop: pointer.dragAndDrop,
     },
   };
 }

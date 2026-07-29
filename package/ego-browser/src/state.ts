@@ -1,7 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
 import { agentWorkspace, loadEnv } from "./env.js";
-import { browserCdp } from "./browser-runtime.js";
 
 loadEnv();
 
@@ -13,6 +12,10 @@ async function defaultSend(req) {
       `unsupported browser runtime request: ${JSON.stringify(req)}`,
     );
   }
+  // Keep the shared state module independent from browser-runtime at load time.
+  // browser-runtime owns the CDP session and imports this state, so a lazy
+  // import here avoids a circular module graph without changing the API.
+  const { browserCdp } = await import("./browser-runtime.js");
   const response = await browserCdp(
     req.method,
     req.params || {},

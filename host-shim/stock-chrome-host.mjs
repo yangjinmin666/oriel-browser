@@ -17,6 +17,8 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
+
 const DEFAULT_CHROME =
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -52,9 +54,9 @@ export async function createStockChromeHost(options = {}) {
 
   if (connectTo) {
     const base = connectTo.replace(/\/$/, "");
-    const res = await fetch(`${base}/json/version`);
-    if (!res.ok) throw new Error(`连不上已运行的浏览器: ${base}`);
-    version = await res.json();
+    const inspected = await inspectDebugEndpoint(base);
+    if (!inspected.ready) throw new Error(`连不上已运行的浏览器: ${base}`);
+    version = inspected.version;
   } else {
     mkdirSync(userDataDir, { recursive: true });
     const chosenPort = port || 9500 + Math.floor(Number(process.pid) % 400);
@@ -178,6 +180,18 @@ export async function createStockChromeHost(options = {}) {
     }
   }
 
+  // Target.getTargets does not expose Chrome's visible-tab selection and its
+  // ordering is not a selection contract. Keep the selected target on the
+  // task space instead, so listTabs, snapshots, and later CLI calls agree.
+  function activeTargetForSpace(space, targets) {
+    const remembered = space?.activeTargetId
+      ? targets.find((target) => target.targetId === space.activeTargetId)
+      : null;
+    const chosen = remembered || pickActive(targets);
+    if (space && chosen) space.activeTargetId = chosen.targetId;
+    return chosen;
+  }
+
   function requireActiveSpace(context) {
     const space = spaces.get(activeSpaceId(context));
     if (!space)
@@ -253,7 +267,7 @@ export async function createStockChromeHost(options = {}) {
           index,
         };
       });
-      const chosen = pickActive(tabs);
+      const chosen = activeTargetForSpace(space, tabs);
       if (chosen) chosen.active = true;
       return { tabs };
     },
@@ -265,6 +279,7 @@ export async function createStockChromeHost(options = {}) {
         browserContextId: space.browserContextId,
       });
       ownTargets.add(targetId);
+      space.activeTargetId = targetId;
       return { targetId, url };
     },
 
@@ -273,7 +288,10 @@ export async function createStockChromeHost(options = {}) {
     // ——见 src/browser-runtime.ts 的 browserSnapshotRefsToRefMap。
     async snapshot(_options = {}, context) {
       const space = spaces.get(activeSpaceId(context));
-      const target = pickActive(await pageTargets(space?.browserContextId));
+      const target = activeTargetForSpace(
+        space,
+        await pageTargets(space?.browserContextId),
+      );
       if (!target) throw new Error("当前任务空间里没有页面");
       const sessionId = await attach(target.targetId);
       await cdp("Accessibility.enable", {}, sessionId);
@@ -318,6 +336,7 @@ export async function createStockChromeHost(options = {}) {
         browserContextId,
         isolated,
         ownership: "agent",
+        activeTargetId: null,
       };
       spaces.set(id, space);
       selectSpace(id, context);
@@ -330,8 +349,25 @@ export async function createStockChromeHost(options = {}) {
       return publicSpace(space);
     },
 
+    async trackActiveTarget(targetId, context) {
+      const space = requireActiveSpace(context);
+      const targets = await pageTargets(space.browserContextId);
+      if (!targets.some((target) => target.targetId === targetId)) {
+        throw new Error("target does not belong to the active task space");
+      }
+      space.activeTargetId = targetId;
+    },
+
     async listTaskSpaces() {
-      return { taskSpaces: [...spaces.values()].map(publicSpace) };
+      const taskSpaces = await Promise.all(
+        [...spaces.values()].map(async (space) => {
+          const targets = await pageTargets(space.browserContextId);
+          const active = activeTargetForSpace(space, targets);
+          const title = active?.title?.trim() || active?.url?.trim() || "";
+          return publicSpace(space, title ? [title] : []);
+        }),
+      );
+      return { taskSpaces };
     },
 
     async closeTaskSpace(nameOrId, context) {
@@ -354,6 +390,7 @@ export async function createStockChromeHost(options = {}) {
           await cdp("Target.closeTarget", { targetId: tab.targetId });
         }
       }
+      space.activeTargetId = null;
       spaces.delete(space.id);
       clearSpaceSelections(space.id);
       return { done: true };
@@ -418,6 +455,8 @@ export async function createStockChromeHost(options = {}) {
           host.takeOverTaskSpace(nameOrId, context),
         claimTaskSpace: (nameOrId) => host.claimTaskSpace(nameOrId, context),
         upgradeBrowser: (...args) => host.upgradeBrowser(...args),
+        trackActiveTarget: (targetId) =>
+          host.trackActiveTarget(targetId, context),
       };
     },
 
@@ -444,13 +483,13 @@ export async function createStockChromeHost(options = {}) {
     }
     throw new Error(`找不到任务空间: ${nameOrId}`);
   }
-  const publicSpace = (s) => ({
+  const publicSpace = (s, recentTabTitles = []) => ({
     taskId: s.name,
     id: s.id,
     name: s.name,
     createdBy: "agent",
     ownership: s.ownership,
-    recentTabTitles: [],
+    recentTabTitles,
   });
 
   return host;
@@ -473,11 +512,10 @@ const INTERESTING_ROLES = new Set([
 ]);
 
 async function waitForEndpoint(port) {
+  const endpoint = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60; i++) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-      if (res.ok) return await res.json();
-    } catch {}
+    const inspected = await inspectDebugEndpoint(endpoint);
+    if (inspected.ready) return inspected.version;
     await sleep(250);
   }
   throw new Error("Chrome 调试端口未就绪");
