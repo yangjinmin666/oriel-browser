@@ -1,8 +1,28 @@
 import AppKit
 import SwiftUI
 
+final class OrielApplicationDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        revealMainWindow()
+    }
+
+    private func revealMainWindow() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard let window = NSApp.windows.first else {
+                return
+            }
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+}
+
 @main
 struct OrielApp: App {
+    @NSApplicationDelegateAdaptor(OrielApplicationDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
@@ -20,6 +40,7 @@ struct OrielApp: App {
                     }
                 }
             }
+            .background(WindowBehavior())
         }
         .windowStyle(.hiddenTitleBar)
 
@@ -32,7 +53,12 @@ struct OrielApp: App {
             Divider()
             Button(L10n.text("menu.control_center")) {
                 NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first?.makeKeyAndOrderFront(nil)
+                if let window = NSApp.windows.first {
+                    if window.isMiniaturized {
+                        window.deminiaturize(nil)
+                    }
+                    window.makeKeyAndOrderFront(nil)
+                }
             }
             Button(L10n.text("menu.refresh")) {
                 model.refresh()

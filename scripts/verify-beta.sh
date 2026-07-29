@@ -45,23 +45,53 @@ for bundle_file in "${required_bundle_files[@]}"; do
   fi
 done
 
+verify_bundle_resource_discovery() {
+  local app_root="$1"
+  swift - "$app_root" <<'SWIFT'
+import Foundation
+
+let appPath = CommandLine.arguments[1]
+guard let bundle = Bundle(path: appPath),
+      bundle.url(forResource: "node", withExtension: nil, subdirectory: "Runtime/bin") != nil,
+      bundle.url(forResource: "oriel", withExtension: "mjs", subdirectory: "Runtime") != nil
+else {
+    fatalError("Oriel runtime resources are not discoverable through Bundle.")
+}
+SWIFT
+}
+
 verify_packaged_doctor() {
   local app_root="$1"
   local temporary_home
   local doctor_output
+  local doctor_exit
   temporary_home="$(mktemp -d "$ROOT/build/oriel-doctor.XXXXXX")"
-  doctor_output="$(
+  if doctor_output="$(
     HOME="$temporary_home" \
       "$app_root/Contents/Resources/Runtime/bin/node" \
       "$app_root/Contents/Resources/Runtime/oriel.mjs" \
       --doctor --json
-  )"
+  )"; then
+    doctor_exit=0
+  else
+    doctor_exit=$?
+  fi
   rm -rf "$temporary_home"
 
-  DOCTOR_OUTPUT="$doctor_output" node -e '
+  # `--doctor` deliberately returns 1 for a valid local setup whose browser is
+  # not running yet. Packaging must accept that state but reject other failures.
+  if [[ "$doctor_exit" -ne 0 && "$doctor_exit" -ne 1 ]]; then
+    echo "Packaged doctor exited unexpectedly: $doctor_exit" >&2
+    exit 1
+  fi
+
+  DOCTOR_EXIT="$doctor_exit" DOCTOR_OUTPUT="$doctor_output" node -e '
     const report = JSON.parse(process.env.DOCTOR_OUTPUT)
     if (report.schemaVersion !== 1 || report.configuration?.valid !== true) {
       throw new Error("Packaged doctor report is not usable.")
+    }
+    if (![0, 1].includes(Number(process.env.DOCTOR_EXIT))) {
+      throw new Error("Packaged doctor returned an unexpected status.")
     }
     const serialized = JSON.stringify(report)
     if (serialized.includes("browserPath") || serialized.includes("profilePath")) {
@@ -70,6 +100,7 @@ verify_packaged_doctor() {
   '
 }
 
+verify_bundle_resource_discovery "$APP"
 verify_packaged_doctor "$APP"
 
 "$ROOT/scripts/package-macos-dmg.sh"
@@ -92,5 +123,6 @@ if [[ ! -d "$MOUNT_POINT/Oriel.app" || ! -L "$MOUNT_POINT/Applications" ]]; then
 fi
 
 verify_packaged_doctor "$MOUNT_POINT/Oriel.app"
+verify_bundle_resource_discovery "$MOUNT_POINT/Oriel.app"
 
 echo "Oriel Beta verification passed: $VERSION (build $BUILD_NUMBER)."

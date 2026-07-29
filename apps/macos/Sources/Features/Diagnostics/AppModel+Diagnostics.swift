@@ -35,7 +35,7 @@ extension AppModel {
         guard let nodeURL = Bundle.main.url(
             forResource: "node",
             withExtension: nil,
-            subdirectory: "Runtime"
+            subdirectory: "Runtime/bin"
         ),
             let entryURL = Bundle.main.url(
                 forResource: "oriel",
