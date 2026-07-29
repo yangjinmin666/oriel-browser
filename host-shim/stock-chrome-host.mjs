@@ -145,7 +145,6 @@ export async function createStockChromeHost(options = {}) {
   }
 
   const sessions = new Map(); // targetId -> sessionId
-  const ownTargets = new Set(); // 我们自己开的标签页；连接模式下只允许关这些
   async function attach(targetId) {
     if (sessions.has(targetId)) return sessions.get(targetId);
     const { sessionId } = await cdp("Target.attachToTarget", {
@@ -157,8 +156,9 @@ export async function createStockChromeHost(options = {}) {
   }
 
   // ——— 任务空间：用标准 CDP 的 BrowserContext 做隔离 ———
-  const spaces = new Map(); // id -> { id, name, browserContextId, ownership }
+  const spaces = new Map(); // id -> task-space state, including owned target ids
   const defaultScope = Symbol("default-scope");
+  const defaultSpaceName = "oriel-default";
   const activeSpaceByScope = new Map();
   let spaceSeq = 0;
 
@@ -180,6 +180,41 @@ export async function createStockChromeHost(options = {}) {
     }
   }
 
+  function assertAgentControl(space) {
+    if (space.ownership !== "agent") {
+      throw new Error(
+        "SIDECAR_AGENT_CONTROL_REQUIRED: 用户持有控制权，这是硬停止，不要重试",
+      );
+    }
+    return space;
+  }
+
+  // A missing task-space selection must never expose the user's current tabs.
+  // The fallback is persistent across CLI calls but owns only targets it creates.
+  function ensureActiveSpace(context) {
+    let space = spaces.get(activeSpaceId(context));
+    if (!space) {
+      space = [...spaces.values()].find(
+        (candidate) => candidate.name === defaultSpaceName,
+      );
+      if (!space) {
+        const id = ++spaceSeq;
+        space = {
+          id,
+          name: defaultSpaceName,
+          browserContextId: undefined,
+          isolated: false,
+          ownership: "agent",
+          activeTargetId: null,
+          targetIds: new Set(),
+        };
+        spaces.set(id, space);
+      }
+      selectSpace(space.id, context);
+    }
+    return assertAgentControl(space);
+  }
+
   // Target.getTargets does not expose Chrome's visible-tab selection and its
   // ordering is not a selection contract. Keep the selected target on the
   // task space instead, so listTabs, snapshots, and later CLI calls agree.
@@ -192,20 +227,6 @@ export async function createStockChromeHost(options = {}) {
     return chosen;
   }
 
-  function requireActiveSpace(context) {
-    const space = spaces.get(activeSpaceId(context));
-    if (!space)
-      throw new Error(
-        "没有选中的任务空间，先调用 createTaskSpace/useTaskSpace",
-      );
-    if (space.ownership !== "agent") {
-      throw new Error(
-        "SIDECAR_AGENT_CONTROL_REQUIRED: 用户持有控制权，这是硬停止，不要重试",
-      );
-    }
-    return space;
-  }
-
   async function pageTargets(browserContextId) {
     const { targetInfos } = await cdp("Target.getTargets", {});
     return targetInfos.filter(
@@ -213,6 +234,12 @@ export async function createStockChromeHost(options = {}) {
         t.type === "page" &&
         (!browserContextId || t.browserContextId === browserContextId),
     );
+  }
+
+  async function pageTargetsForSpace(space) {
+    const targets = await pageTargets(space.browserContextId);
+    if (space.browserContextId) return targets;
+    return targets.filter((target) => space.targetIds.has(target.targetId));
   }
 
   // "当前页"的唯一判定入口。listTabs 的 active 标记和 snapshot 都必须走这里，
@@ -244,8 +271,8 @@ export async function createStockChromeHost(options = {}) {
     // 见 src/browser-runtime.ts:117 —— `result?.tabs || result?.targetInfos || []`。
     // 返回裸数组会让它取不到，报 "no active tab to attach session"。
     async listTabs(context) {
-      const space = spaces.get(activeSpaceId(context));
-      const targets = await pageTargets(space?.browserContextId);
+      const space = ensureActiveSpace(context);
+      const targets = await pageTargetsForSpace(space);
       const tabs = targets.map((t, index) => {
         let origin = "",
           pathname = "",
@@ -273,12 +300,12 @@ export async function createStockChromeHost(options = {}) {
     },
 
     async createTab(url = "about:blank", context) {
-      const space = requireActiveSpace(context);
+      const space = ensureActiveSpace(context);
       const { targetId } = await cdp("Target.createTarget", {
         url,
         browserContextId: space.browserContextId,
       });
-      ownTargets.add(targetId);
+      space.targetIds.add(targetId);
       space.activeTargetId = targetId;
       return { targetId, url };
     },
@@ -287,10 +314,10 @@ export async function createStockChromeHost(options = {}) {
     // 返回 { content, refs }，refs 形状必须是 [{ backendNodeId, role, name }]
     // ——见 src/browser-runtime.ts 的 browserSnapshotRefsToRefMap。
     async snapshot(_options = {}, context) {
-      const space = spaces.get(activeSpaceId(context));
+      const space = ensureActiveSpace(context);
       const target = activeTargetForSpace(
         space,
-        await pageTargets(space?.browserContextId),
+        await pageTargetsForSpace(space),
       );
       if (!target) throw new Error("当前任务空间里没有页面");
       const sessionId = await attach(target.targetId);
@@ -337,6 +364,7 @@ export async function createStockChromeHost(options = {}) {
         isolated,
         ownership: "agent",
         activeTargetId: null,
+        targetIds: new Set(),
       };
       spaces.set(id, space);
       selectSpace(id, context);
@@ -350,8 +378,8 @@ export async function createStockChromeHost(options = {}) {
     },
 
     async trackActiveTarget(targetId, context) {
-      const space = requireActiveSpace(context);
-      const targets = await pageTargets(space.browserContextId);
+      const space = ensureActiveSpace(context);
+      const targets = await pageTargetsForSpace(space);
       if (!targets.some((target) => target.targetId === targetId)) {
         throw new Error("target does not belong to the active task space");
       }
@@ -361,7 +389,7 @@ export async function createStockChromeHost(options = {}) {
     async listTaskSpaces() {
       const taskSpaces = await Promise.all(
         [...spaces.values()].map(async (space) => {
-          const targets = await pageTargets(space.browserContextId);
+          const targets = await pageTargetsForSpace(space);
           const active = activeTargetForSpace(space, targets);
           const title = active?.title?.trim() || active?.url?.trim() || "";
           return publicSpace(space, title ? [title] : []);
@@ -378,18 +406,14 @@ export async function createStockChromeHost(options = {}) {
         await cdp("Target.disposeBrowserContext", {
           browserContextId: space.browserContextId,
         });
-      } else if (connectTo) {
-        // 连接模式：默认空间就是用户自己的浏览上下文，这里的标签页是**用户的**。
-        // 只关我们自己开的，绝不批量清理。
-        for (const targetId of ownTargets) {
+      } else {
+        // Shared-profile spaces isolate tab ownership, not cookies. Closing one
+        // space therefore closes only targets that this space created.
+        for (const targetId of space.targetIds) {
           await cdp("Target.closeTarget", { targetId }).catch(() => {});
         }
-        ownTargets.clear();
-      } else {
-        for (const tab of (await host.listTabs(context)).tabs) {
-          await cdp("Target.closeTarget", { targetId: tab.targetId });
-        }
       }
+      space.targetIds.clear();
       space.activeTargetId = null;
       spaces.delete(space.id);
       clearSpaceSelections(space.id);
@@ -404,7 +428,7 @@ export async function createStockChromeHost(options = {}) {
       return host.closeTaskSpace(nameOrId, context);
     },
 
-    // 控制权：用户持有期间任何操作硬失败，不重试、不自动夺回（见 requireActiveSpace）
+    // 控制权：用户持有期间任何操作硬失败，不重试、不自动夺回。
     async handOffTaskSpace(nameOrId, context) {
       const space = findSpace(nameOrId ?? activeSpaceId(context));
       if (space.ownership === "user")

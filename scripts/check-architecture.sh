@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE_ROOT="$ROOT/apps/macos/Sources"
 RESOURCE_ROOT="$ROOT/apps/macos/Resources"
+ORIEL_SKILL="$ROOT/skills/oriel-browser/SKILL.md"
 
 for directory in App Core Features Shared; do
   if [[ ! -d "$SOURCE_ROOT/$directory" ]]; then
@@ -87,5 +88,47 @@ if [[ -s "$TEMP_DIRECTORY/unused.keys" ]]; then
   sed 's/^/  /' "$TEMP_DIRECTORY/unused.keys" >&2
   exit 1
 fi
+
+if [[ ! -f "$ORIEL_SKILL" ]]; then
+  echo "Missing Oriel agent skill: $ORIEL_SKILL" >&2
+  exit 1
+fi
+
+for obsolete_api in "useOrCreateTaskSpace(" "snapshotText("; do
+  if grep -Fq "$obsolete_api" "$ORIEL_SKILL"; then
+    echo "Oriel skill still teaches obsolete API: $obsolete_api" >&2
+    exit 1
+  fi
+done
+
+for current_api in \
+  "taskSpaces.useOrCreate(" \
+  "browser.openOrReuseTab(" \
+  "page.snapshot("; do
+  if ! grep -Fq "$current_api" "$ORIEL_SKILL"; then
+    echo "Oriel skill is missing current API guidance: $current_api" >&2
+    exit 1
+  fi
+done
+
+for historical_skill in ego-anywhere zhiyou-browser; do
+  if [[ -e "$ROOT/skills/$historical_skill" ]]; then
+    echo "Historical skill residue must be removed: skills/$historical_skill" >&2
+    exit 1
+  fi
+done
+
+if grep -n "ego-anywhere\\|Ego Anywhere" \
+  "$ROOT/README.md" "$SOURCE_ROOT/Core/Domain.swift" >/dev/null; then
+  echo "Removed ego-anywhere branding remains in README.md or Domain.swift." >&2
+  exit 1
+fi
+
+for agent_root in ".codex/skills" ".claude/skills"; do
+  if ! grep -Fq "\"$agent_root\"" "$SOURCE_ROOT/Core/Domain.swift"; then
+    echo "Agent integration is missing install root: $agent_root" >&2
+    exit 1
+  fi
+done
 
 echo "Architecture and localization checks passed."

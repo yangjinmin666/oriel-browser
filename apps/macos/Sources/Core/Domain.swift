@@ -3,11 +3,12 @@ import Foundation
 enum Brand {
     static let displayName = "Oriel"
     static let supportDirectoryName = "Oriel"
-    static let legacySupportDirectoryNames = ["ZhiYou", "Ego Anywhere"]
+    static let legacySupportDirectoryNames = ["ZhiYou"]
     static let cliName = "oriel"
-    static let legacyCLINames = ["zhiyou", "ego-anywhere"]
+    static let legacyCLINames = ["zhiyou"]
     static let skillName = "oriel-browser"
-    static let legacySkillNames = ["zhiyou-browser", "ego-anywhere"]
+    static let conflictingSkillNames = ["ego-browser", "zhiyou-browser"]
+    static let agentSkillRootRelativePaths = [".codex/skills", ".claude/skills"]
 
     static var releaseLabel: String {
         let release = (

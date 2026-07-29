@@ -238,12 +238,20 @@ final class AppModel: ObservableObject {
             atPath: FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".local/bin/\(Brand.cliName)").path
         )
-        skillInstalled = FileManager.default.fileExists(
-            atPath: FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(
-                    ".codex/skills/\(Brand.skillName)/SKILL.md"
-                ).path
-        )
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        skillInstalled = Brand.agentSkillRootRelativePaths.allSatisfy {
+            relativeRoot in
+            FileManager.default.fileExists(
+                atPath: home
+                    .appendingPathComponent(relativeRoot, isDirectory: true)
+                    .appendingPathComponent(
+                        Brand.skillName,
+                        isDirectory: true
+                    )
+                    .appendingPathComponent("SKILL.md")
+                    .path
+            )
+        }
 
         if !configurationValid {
             message = L10n.text(

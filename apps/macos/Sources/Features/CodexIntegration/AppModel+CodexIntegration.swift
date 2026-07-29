@@ -46,29 +46,52 @@ extension AppModel {
             let skillSource = resources
                 .appendingPathComponent("Skill", isDirectory: true)
                 .appendingPathComponent(Brand.skillName, isDirectory: true)
-            let skillDestination = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(
-                    ".codex/skills/\(Brand.skillName)",
+            guard FileManager.default.fileExists(
+                atPath: skillSource.appendingPathComponent("SKILL.md").path
+            ) else {
+                throw NSError(
+                    domain: "Oriel",
+                    code: 2,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: L10n.text(
+                            "error.codex.runtime_incomplete"
+                        )
+                    ]
+                )
+            }
+
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            for relativeRoot in Brand.agentSkillRootRelativePaths {
+                let skillRoot = home.appendingPathComponent(
+                    relativeRoot,
                     isDirectory: true
                 )
-            if FileManager.default.fileExists(atPath: skillDestination.path) {
-                try FileManager.default.removeItem(at: skillDestination)
-            }
-            for legacySkillName in Brand.legacySkillNames {
-                let legacySkillDestination = FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(
-                        ".codex/skills/\(legacySkillName)",
+                try FileManager.default.createDirectory(
+                    at: skillRoot,
+                    withIntermediateDirectories: true
+                )
+
+                // Oriel's skill replaces the old agent-facing ego-browser
+                // contract. Keeping both lets agents select obsolete helpers.
+                for skillName in [Brand.skillName] + Brand.conflictingSkillNames {
+                    let destination = skillRoot.appendingPathComponent(
+                        skillName,
                         isDirectory: true
                     )
-                if FileManager.default.fileExists(atPath: legacySkillDestination.path) {
-                    try FileManager.default.removeItem(at: legacySkillDestination)
+                    if FileManager.default.fileExists(atPath: destination.path) {
+                        try FileManager.default.removeItem(at: destination)
+                    }
                 }
+
+                let skillDestination = skillRoot.appendingPathComponent(
+                    Brand.skillName,
+                    isDirectory: true
+                )
+                try FileManager.default.copyItem(
+                    at: skillSource,
+                    to: skillDestination
+                )
             }
-            try FileManager.default.createDirectory(
-                at: skillDestination.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try FileManager.default.copyItem(at: skillSource, to: skillDestination)
             try saveAllConfigurations()
             cliInstalled = true
             skillInstalled = true

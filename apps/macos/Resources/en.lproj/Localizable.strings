@@ -12,12 +12,12 @@
 "control_center.browser.profile_endpoint" = "Isolated channel · port %d";
 "control_center.browser.start" = "Start";
 "control_center.browser.stop" = "Stop";
-"control_center.codex.detail" = "CLI + browser skill";
+"control_center.codex.detail" = "CLI + Codex and Claude Code skills";
 "control_center.codex.install" = "Install";
 "control_center.codex.installed" = "Integration installed";
 "control_center.codex.reinstall" = "Reinstall";
 "control_center.codex.required" = "Integration required";
-"control_center.codex.section" = "Codex";
+"control_center.codex.section" = "Agents";
 "control_center.diagnostics" = "Run diagnostics";
 "control_center.feature.local" = "Local only";
 "control_center.feature.sessions" = "Persistent sessions";
@@ -56,7 +56,7 @@
 "message.browser.profiles_connected" = "Both account browsers are connected and ready for separate tasks.";
 "message.browser.ready" = "The environment is ready. Start the browser to continue.";
 "message.browser.stopped" = "Browser stopped. Your login state remains stored locally.";
-"message.codex.installed" = "Oriel integration is installed. The background service starts with the first task. Reopen Codex to use it.";
+"message.codex.installed" = "Oriel is installed for Codex and Claude Code. The background service starts with the first task. Reopen both agents to use it.";
 "message.diagnostics.passed" = "The preflight check passed. The persistent background service starts with the first task.";
 "message.diagnostics.configuration_needs_repair" = "The local connection settings need a repair.";
 "message.diagnostics.repaired" = "Local connection repaired. Your browser profile and sign-ins were kept.";

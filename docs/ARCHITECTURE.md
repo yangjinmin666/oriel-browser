@@ -6,11 +6,11 @@
 
 | 层 | 产品职责 | 代码位置 |
 | --- | --- | --- |
-| macOS 产品层 | 首次欢迎、浏览器选择、启动/停止、Codex 安装、状态诊断 | `apps/macos/Sources/` |
+| macOS 产品层 | 首次欢迎、浏览器选择、启动/停止、Agent 安装、状态诊断 | `apps/macos/Sources/` |
 | 本机接入层 | CLI、持久 daemon、Unix socket RPC、Chromium CDP 适配 | `host-shim/` |
 | Agent 运行时 | 会话、页面、语义快照、定位器、输入、等待、下载、录屏 | `package/ego-browser/src/` |
 | 站点知识层 | 站点说明、稳定选择器和可复用工具 | `skills/ego-browser/learnings/` |
-| Agent 使用入口 | 告诉 Codex 何时以及怎样调用 Oriel | `skills/oriel-browser/`、`skills/ego-browser/` |
+| Agent 使用入口 | 告诉 Codex 和 Claude Code 何时以及怎样调用 Oriel | `skills/oriel-browser/` |
 | 构建发布层 | Swift 编译、Node 运行时打包、图标、字体、DMG | `scripts/`、`assets/` |
 
 ## 2. 运行链路
@@ -21,7 +21,7 @@ flowchart LR
     UI --> CFG["config.json + 独立浏览器 Profile"]
     UI --> B["Chrome / Tabbit / Edge"]
 
-    C["Codex"] --> SKILL["oriel-browser Skill"]
+    C["Codex / Claude Code"] --> SKILL["oriel-browser Skill"]
     SKILL --> CLI["oriel CLI"]
     CLI --> RUNTIME["ego-browser Runtime"]
     CLI --> D["Oriel daemon"]
@@ -81,7 +81,10 @@ apps/macos/
 
 `BrowserControl` 管理受控 Chromium 的独立 Profile、调试端口、启动和停止。
 
-`CodexIntegration` 安装 CLI 启动器和 Codex Skill，不负责执行浏览器任务。
+`CodexIntegration` 安装 CLI 启动器，并把同一份
+`oriel-browser` Skill 安装到 Codex 和 Claude Code，不负责执行浏览器任务。
+安装时会删除两个 Agent 目录中的旧 `ego-browser` 和
+`zhiyou-browser` Skill，避免旧 API 与 Oriel API 同时被选中。
 
 `Diagnostics` 汇总浏览器、CLI 和 Skill 的健康状态。
 
@@ -105,6 +108,11 @@ apps/macos/
 | `runtime-config.mjs` | 读取并校验 Oriel 本地配置，只允许 localhost 调试端点 |
 
 本层不包含 Agent 业务语义。它只负责可靠地把运行时连接到浏览器。
+
+普通任务空间共享所选浏览器 Profile 的登录态，但只枚举和关闭该空间
+自己创建的标签页。没有显式选择任务空间时，本层自动使用持久的
+`oriel-default` 空间，绝不把用户原有标签页作为隐式操作目标。显式的
+`isolated: true` 使用临时 BrowserContext，隔离更强但不继承持久登录态。
 
 ## 5. Agent 运行时
 
@@ -142,7 +150,17 @@ browser-tools/
 
 站点知识应记录稳定 URL、稳定选择器、平台限制和已验证流程。不得保存账号、Cookie、密码、验证码或其他秘密。
 
-## 7. 本地数据
+## 7. Agent Skill 关系
+
+`skills/oriel-browser/` 是唯一面向用户安装的 Agent Skill，使用
+`taskSpaces.useOrCreate()`、`browser.openOrReuseTab()` 和
+`page.snapshot()` 等 Oriel 门面 API。
+
+`skills/ego-browser/` 随上游 MIT 运行时保留，用于站点知识、核查记录和
+运行时资源，不与 `oriel-browser` 并列安装。对 Codex 和 Claude Code
+而言，两者是替代关系，不是并存关系。
+
+## 8. 本地数据
 
 Oriel 的持久数据位于：
 
@@ -159,7 +177,7 @@ Oriel 的持久数据位于：
 
 登录态由 Chromium 写入独立 Profile。Oriel 不复制或导出 Cookie 值。daemon socket 与锁文件仅对当前用户开放。
 
-## 8. 多语言
+## 9. 多语言
 
 用户可见文案不能直接写在 Swift 代码中。统一通过 `L10n.text("功能.语义")` 或 `L10n.format(...)` 读取。
 
@@ -170,7 +188,7 @@ Oriel 的持久数据位于：
 
 `scripts/check-architecture.sh` 会校验两种语言的 key 完全一致，并检查 Swift 使用的 key 都已声明。
 
-## 9. 依赖规则
+## 10. 依赖规则
 
 1. `App` 可以依赖 `Core`、`Features` 和 `Shared`。
 2. `Features` 可以依赖 `Core` 和 `Shared`，Feature 之间不直接共享内部实现。
@@ -180,7 +198,7 @@ Oriel 的持久数据位于：
 6. `learning` 只能通过公开 helper/driver 能力工作，不绕过运行时直接接触 daemon。
 7. 浏览器自动化实现统一放在 `package/ego-browser/src/driver/`。
 
-## 10. 验证矩阵
+## 11. 验证矩阵
 
 | 改动范围 | 最低验证 |
 | --- | --- |
@@ -191,7 +209,7 @@ Oriel 的持久数据位于：
 | 站点知识 | `npm run validate:site-skills` |
 | 发布包 | `./scripts/package-macos-dmg.sh`、`codesign --verify`、`hdiutil verify` |
 
-## 11. 新功能放置原则
+## 12. 新功能放置原则
 
 新增用户可见流程时，在 `Features/<FeatureName>/` 建立独立目录。
 

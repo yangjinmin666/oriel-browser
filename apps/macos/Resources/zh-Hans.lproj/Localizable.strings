@@ -12,12 +12,12 @@
 "control_center.browser.profile_endpoint" = "独立通道 · 端口 %d";
 "control_center.browser.start" = "启动";
 "control_center.browser.stop" = "停止";
-"control_center.codex.detail" = "命令行工具 + 浏览器技能";
+"control_center.codex.detail" = "命令行工具 + Codex、Claude Code 技能";
 "control_center.codex.install" = "安装";
 "control_center.codex.installed" = "集成已安装";
 "control_center.codex.reinstall" = "重新安装";
 "control_center.codex.required" = "需要安装集成";
-"control_center.codex.section" = "Codex";
+"control_center.codex.section" = "智能体";
 "control_center.diagnostics" = "运行诊断";
 "control_center.feature.local" = "仅在本机运行";
 "control_center.feature.sessions" = "持久会话";
@@ -56,7 +56,7 @@
 "message.browser.profiles_connected" = "两个账号浏览器均已连接，可以分别执行任务。";
 "message.browser.ready" = "环境已就绪，启动浏览器即可使用。";
 "message.browser.stopped" = "浏览器已停止。登录状态仍保存在本机。";
-"message.codex.installed" = "Oriel 集成已安装，后台会在首次任务时自动启动。重新打开 Codex 后即可使用。";
+"message.codex.installed" = "Oriel 已为 Codex 和 Claude Code 安装，后台会在首次任务时自动启动。重新打开两个智能体后即可使用。";
 "message.diagnostics.passed" = "使用前检查通过，持久后台会在首次任务时自动启动。";
 "message.diagnostics.configuration_needs_repair" = "本机连接设置需要修复。";
 "message.diagnostics.repaired" = "本机连接已修复，浏览器资料和登录状态均已保留。";

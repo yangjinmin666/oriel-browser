@@ -1,11 +1,12 @@
 # Oriel
 
-**AI 浏览器协作台。让 Codex 使用你选择的 Chromium 浏览器。**
+**AI 浏览器协作台。让 Codex 和 Claude Code 使用你选择的 Chromium 浏览器。**
 
 Oriel packages the MIT-licensed `ego-browser` runtime with a lightweight
 macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
-browser with a persistent local profile, and installs the Codex skill and CLI
-without requiring terminal setup or a separate AI browser.
+browser with a persistent local profile, and installs the Oriel skill for
+Codex and Claude Code plus a shared CLI without requiring terminal setup or a
+separate AI browser.
 
 > **Status:** `v0.2.0-alpha` Beta. The core runtime and local packaging gate are
 > tested; the macOS app is not yet notarized for public distribution.
@@ -17,8 +18,8 @@ without requiring terminal setup or a separate AI browser.
   `~/Applications` installs
 - One-click managed browser startup on a verified localhost-only Chromium CDP endpoint
 - Persistent browser login state without copying or exporting cookies
-- Persistent local daemon that reuses task spaces and pages across Codex calls
-- One-click Codex CLI and skill installation
+- Persistent local daemon that reuses task spaces and pages across agent calls
+- One-click CLI and skill installation for Codex and Claude Code
 - Semantic snapshots, refs, navigation, clicks, typing, screenshots, waits,
   HTML5 drag-and-drop, and task spaces from the upstream runtime
 - Site notes for GitHub, Zhihu, BOSS Zhipin, and other tested workflows
@@ -27,14 +28,14 @@ The packaged Oriel runtime has an end-to-end check that starts an isolated
 temporary Chrome profile, opens a page, and proves two independent CLI calls
 reuse the same task and page before reading semantic snapshots. Chrome and
 Tabbit have also been manually exercised through the macOS control center.
-The runtime test suite currently contains 303 passing tests, plus 25 host and
+The runtime test suite currently contains 303 passing tests, plus 28 host and
 daemon protocol tests.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    A["Codex"] --> B["oriel CLI"]
+    A["Codex / Claude Code"] --> B["oriel CLI"]
     B --> C["MIT ego-browser runtime"]
     C --> D["Private Unix socket"]
     D --> E["Persistent Oriel daemon"]
@@ -114,8 +115,8 @@ current guidance is [here](https://support.apple.com/en-us/102445).
 2. Select Chrome, Tabbit, or Edge.
 3. Press **Start browser**.
 4. Log in to any websites you want to use.
-5. Press **One-click install** under Codex integration.
-6. Restart Codex.
+5. Press **One-click install** under Agent integration.
+6. Restart Codex and Claude Code.
 
 After that, Codex can run:
 
@@ -123,8 +124,27 @@ After that, Codex can run:
 oriel --doctor
 ```
 
-and browser tasks through the installed `oriel-browser` skill. The legacy
-`zhiyou` and `ego-anywhere` commands remain available as compatibility aliases.
+and browser tasks through the installed `oriel-browser` skill. Oriel installs
+that skill into both `~/.codex/skills/` and `~/.claude/skills/`. At the
+agent-facing level it **replaces** the old `ego-browser` and `zhiyou-browser`
+skills, which the installer removes from both locations so agents cannot select
+their obsolete helper API. The repository still contains `skills/ego-browser`
+only as upstream runtime knowledge and site notes; it is not a second
+user-facing Oriel skill. The legacy `zhiyou` command remains as a compatibility
+alias.
+
+### Default tab isolation
+
+Named task spaces are recommended for every independent goal. If an agent
+forgets to create one, Oriel automatically selects a persistent
+`oriel-default` space. A normal space only sees and closes tabs that Oriel
+created for that space; it does not enumerate, reuse, or close the tabs the user
+already had open.
+
+Normal spaces share the selected Oriel browser profile, so they can reuse its
+website sign-ins. This is tab isolation, not credential isolation. An explicit
+temporary isolated browser context is available for clean one-off work, but it
+does not inherit the persistent profile's login state.
 
 Inspect or stop the persistent background process:
 

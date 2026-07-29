@@ -65,10 +65,14 @@ function startFixture() {
       response.end(JSON.stringify({ ok: true }));
       return;
     }
+    const fallback = request.url?.startsWith("/fallback");
+    const title = fallback
+      ? "Oriel default isolation"
+      : "Oriel packaged workflow";
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(`<!doctype html>
-      <html><head><title>Oriel packaged workflow</title></head>
-      <body><main><h1>Oriel packaged workflow</h1><p>Browser snapshot smoke test.</p></main></body></html>`);
+      <html><head><title>${title}</title></head>
+      <body><main><h1>${title}</h1><p>Browser snapshot smoke test.</p></main></body></html>`);
   });
   return new Promise((resolve, reject) => {
     server.once("error", reject);
@@ -168,6 +172,12 @@ function resultFrom(output, phase) {
   return JSON.parse(line.slice("ORIEL_WORKFLOW_RESULT ".length));
 }
 
+async function debugTargets(endpoint) {
+  const response = await fetch(`${endpoint}/json/list`);
+  assert(response.ok, `Could not inspect temporary Chrome targets: ${response.status}`);
+  return response.json();
+}
+
 async function main() {
   assert(existsSync(bundledNode), `Bundled Node is missing: ${bundledNode}`);
   assert(existsSync(bundledCli), `Bundled Oriel CLI is missing: ${bundledCli}`);
@@ -257,10 +267,72 @@ async function main() {
     );
     assert(secondResult.snapshotLength > 0, "reused snapshot was empty");
 
+    const baselineTargets = await debugTargets(endpoint);
+    const baselineTargetIds = new Set(
+      baselineTargets.map((target) => target.id).filter(Boolean),
+    );
+    assert(
+      baselineTargetIds.size > 0,
+      "temporary Chrome had no pre-existing tab to protect",
+    );
+
+    const fallbackUrl = new URL("fallback", fixture.url).href;
+    const fallbackFirst = await run(bundledNode, [bundledCli, "nodejs"], {
+      env: environment,
+      input: `
+        const before = await browser.listTabs();
+        if (before.length !== 0) throw new Error("implicit task space exposed pre-existing browser tabs: " + JSON.stringify(before));
+        const tab = await browser.openOrReuseTab(${JSON.stringify(fallbackUrl)}, { wait: true, timeout: 10000 });
+        const snapshot = await page.snapshot({ scope: "full_page" });
+        if (!snapshot.includes("Oriel default isolation")) throw new Error("implicit task space snapshot missed its own page");
+        console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "fallback-first", targetId: tab.targetId, snapshotLength: snapshot.length }));
+      `,
+    });
+    const fallbackFirstResult = resultFrom(
+      fallbackFirst.stdout,
+      "fallback-first",
+    );
+
+    const fallbackSecond = await run(bundledNode, [bundledCli, "nodejs"], {
+      env: environment,
+      input: `
+        const tabs = await browser.listTabs();
+        const tab = await browser.currentTab();
+        const snapshot = await page.snapshot({ scope: "full_page" });
+        if (tabs.length !== 1 || !tab?.targetId) throw new Error("implicit task space did not retain exactly its own page: " + JSON.stringify(tabs));
+        if (!snapshot.includes("Oriel default isolation")) throw new Error("implicit task space did not reuse its page");
+        console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "fallback-second", targetId: tab.targetId, snapshotLength: snapshot.length }));
+        await taskSpaces.complete("oriel-default", { keep: false });
+      `,
+    });
+    const fallbackSecondResult = resultFrom(
+      fallbackSecond.stdout,
+      "fallback-second",
+    );
+    assert(
+      fallbackFirstResult.targetId === fallbackSecondResult.targetId,
+      "implicit task space did not reuse the same owned page",
+    );
+
+    const finalTargets = await debugTargets(endpoint);
+    const finalTargetIds = new Set(
+      finalTargets.map((target) => target.id).filter(Boolean),
+    );
+    for (const targetId of baselineTargetIds) {
+      assert(
+        finalTargetIds.has(targetId),
+        "closing an Oriel task space closed a pre-existing browser tab",
+      );
+    }
+    assert(
+      !finalTargetIds.has(fallbackFirstResult.targetId),
+      "closing the implicit task space left its owned page open",
+    );
+
     const daemonLog = await readFile(logPath, "utf8").catch(() => "");
     assert(!/Error:|Unhandled|uncaught/i.test(daemonLog), "daemon log contains an error");
     process.stdout.write(
-      "Oriel packaged workflow passed: two independent CLI calls reused one task and page, and both received a semantic snapshot.\n",
+      "Oriel packaged workflow passed: named and implicit spaces reused only their own pages, protected pre-existing tabs, and returned semantic snapshots.\n",
     );
   } finally {
     await run(bundledNode, [bundledCli, "--daemon-stop"], {

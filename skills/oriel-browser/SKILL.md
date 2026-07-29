@@ -1,14 +1,23 @@
 ---
 name: oriel-browser
-description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium browser through Oriel. Use for opening pages, interacting with logged-in sites, extracting page data, testing web apps, screenshots, and other browser automation.
+description: Control websites in a managed Chrome, Tabbit, Edge, or Chromium browser through Oriel. Use for opening pages, interacting with logged-in sites, extracting page data, testing web apps, screenshots, and other browser automation. This is the Oriel-compatible replacement for the old ego-browser agent skill.
 ---
 
 # Oriel
 
-Oriel lets Codex control a real Chromium browser without requiring the
-ego lite browser. The macOS control center manages the browser connection and
-keeps login state in a dedicated local browser profile. A local daemon preserves
-task spaces and page ownership across independent Codex calls.
+Oriel lets Codex or Claude Code control a real Chromium browser without
+requiring the ego lite browser. The macOS control center manages the browser
+connection and keeps login state in a dedicated local browser profile. A local
+daemon preserves task spaces and page ownership across independent agent calls.
+
+Use only the current Oriel facade:
+
+- `taskSpaces.useOrCreate(...)`
+- `browser.openOrReuseTab(...)`
+- `page.snapshot(...)`
+
+Do not use the legacy global task-space or text-snapshot helpers from the old
+`ego-browser` agent skill.
 
 ## Before browser work
 
@@ -42,6 +51,13 @@ EOF
 
 Use semantic snapshots first, then act with refs or durable selectors. Keep
 reusing the same task-space name within one user goal.
+
+Always create or select a named task space before browser work. Oriel also has
+a safety fallback: when a script omits this step, it uses `oriel-default` and
+only exposes tabs created by that space. It never treats the user's existing
+tabs as implicit task tabs. Normal task spaces share website sign-ins from the
+selected Oriel browser profile; use distinct names to keep independent goals
+from sharing page ownership.
 
 ## Safety
 

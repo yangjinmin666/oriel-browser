@@ -89,7 +89,11 @@ verify_packaged_doctor() {
 
   DOCTOR_EXIT="$doctor_exit" DOCTOR_OUTPUT="$doctor_output" node -e '
     const report = JSON.parse(process.env.DOCTOR_OUTPUT)
-    if (report.schemaVersion !== 1 || report.configuration?.valid !== true) {
+    if (
+      report.schemaVersion !== 2 ||
+      report.profileId !== "account-1" ||
+      report.configuration?.valid !== true
+    ) {
       throw new Error("Packaged doctor report is not usable.")
     }
     if (![0, 1].includes(Number(process.env.DOCTOR_EXIT))) {
