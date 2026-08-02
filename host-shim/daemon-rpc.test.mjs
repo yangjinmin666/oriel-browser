@@ -11,6 +11,7 @@ function createFakeHost() {
   const spaces = new Map();
   const selectedByScope = new Map();
   const trackedTargets = [];
+  const openedTabs = [];
   let sequence = 0;
 
   const host = {
@@ -58,6 +59,10 @@ function createFakeHost() {
         async listTaskSpaces() {
           return { taskSpaces: [...spaces.values()] };
         },
+        async createTab(url) {
+          openedTabs.push({ scopeId, url });
+          return { targetId: `target-${openedTabs.length}`, url };
+        },
         async listTabs() {
           const space = spaces.get(selectedByScope.get(scopeId));
           return {
@@ -74,7 +79,7 @@ function createFakeHost() {
     },
     async close() {},
   };
-  return { host, trackedTargets };
+  return { host, trackedTargets, openedTabs };
 }
 
 async function withDaemon(run) {
@@ -301,6 +306,50 @@ test("task approval is available only through the control-plane RPC", async () =
     await client.daemonRequest("control.task.approve-next", task.id);
     const listed = await client.listTaskSpaces();
     assert.equal(listed.taskSpaces[0].lifecycle.approvalAvailable, true);
+    await client.close();
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("opening a web page is a read, but other schemes still need approval", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "oriel-open-tab-test-"));
+  const socketPath = join(directory, "daemon.sock");
+  const { host, openedTabs } = createFakeHost();
+  const governance = createTaskGovernance({
+    statePath: join(directory, "task-governance.json"),
+    profileId: "test-profile",
+    sessionId: "test-session",
+  });
+  const server = await startDaemonRpcServer({ host, socketPath, governance });
+  try {
+    const client = await connectDaemonRpc({ socketPath });
+    await client.createTaskSpace("unattended-read");
+
+    // A fresh task defaults to requires-approval and holds no approval, yet an
+    // agent must still be able to reach a page and observe it.
+    await client.daemonRequest("createTab", "https://example.com/");
+    await client.daemonRequest("createTab", "about:blank");
+    assert.deepEqual(
+      openedTabs.map((tab) => tab.url),
+      ["https://example.com/", "about:blank"],
+    );
+
+    for (const url of [
+      "file:///etc/passwd",
+      "javascript:fetch('https://evil.test')",
+      "chrome://settings",
+      "devtools://devtools/bundled/inspector.html",
+    ]) {
+      await assert.rejects(
+        client.daemonRequest("createTab", url),
+        (error) => error.code === "ORIEL_APPROVAL_REQUIRED",
+        `${url} must still require approval`,
+      );
+    }
+    assert.equal(openedTabs.length, 2);
+
     await client.close();
   } finally {
     await server.close();

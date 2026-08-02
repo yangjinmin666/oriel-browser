@@ -37,8 +37,27 @@ const TASK_SCOPED_RPC_METHODS = new Set([
   "trackActiveTarget",
 ]);
 
+// Opening a page is a read: it fetches a document, it does not act on the
+// user's behalf. Gating it made every task block on its first step, so an
+// unattended agent stopped before it could observe anything. The actions that
+// carry consequence — clicks, typing, form submission, downloads — are gated
+// separately through authorizeCDP, which keeps its own read-only allowlist.
+//
+// Only http(s) and about:blank are treated as reads here. Schemes such as
+// file:, chrome:, devtools: and javascript: reach beyond page content or run
+// script, so they still require approval.
 function isSafeLocalTab(url) {
-  return typeof url === "string" && url.trim().toLowerCase() === "about:blank";
+  if (typeof url !== "string") return false;
+  const value = url.trim();
+  if (value === "") return true;
+  if (value.toLowerCase() === "about:blank") return true;
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "http:" || parsed.protocol === "https:";
 }
 
 function isHardStop(error) {

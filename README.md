@@ -149,8 +149,11 @@ The task-space page also keeps a local, metadata-only lifecycle record: the
 execution policy, one-action approvals, hand-off/resume events, safe failures,
 and recovery requests. `Read-only` and `Draft` block browser-changing actions;
 `Requires approval` blocks each such action until the user approves the next
-one. This authorization is independent of task-space ownership: an agent-owned
-space is not automatically authorized to make a browser change. Policy changes,
+one. Opening an `http(s)` page is treated as a read, so an agent can always
+reach and observe a page; schemes such as `file:`, `chrome:`, `devtools:`, and
+`javascript:` reach beyond page content and remain browser changes. This
+authorization is independent of task-space ownership: an agent-owned space is
+not automatically authorized to make a browser change. Policy changes,
 approvals, recovery, and audit history are control-plane actions owned by the
 Oriel app; they are deliberately absent from the agent-facing `taskSpaces` API,
 so an agent cannot approve its own blocked action through the supported facade.
