@@ -2,6 +2,8 @@
 
 **AI 浏览器协作台。让 Codex 和 Claude Code 使用你选择的 Chromium 浏览器。**
 
+[简体中文](./README.zh-CN.md)
+
 Oriel packages the MIT-licensed `ego-browser` runtime with a lightweight
 macOS control center. It detects Chrome, Tabbit, and Edge, launches a managed
 browser with a persistent local profile, and installs the Oriel skill for
