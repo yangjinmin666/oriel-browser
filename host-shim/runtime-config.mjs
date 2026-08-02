@@ -9,6 +9,13 @@ export const APP_SUPPORT_DIR = join(
   "Oriel",
 );
 
+// A test-only state root keeps temporary acceptance runs from ever writing a
+// user's production policy/audit journal. Production continues to use Oriel's
+// Application Support directory and requires an absolute local path.
+export const RUNTIME_STATE_DIR = process.env.ORIEL_STATE_DIR
+  ? absolutePath(process.env.ORIEL_STATE_DIR, "ORIEL_STATE_DIR", APP_SUPPORT_DIR)
+  : APP_SUPPORT_DIR;
+
 export const LEGACY_APP_SUPPORT_DIRS = [
   join(homedir(), "Library", "Application Support", "ZhiYou"),
   join(homedir(), "Library", "Application Support", "Ego Anywhere"),

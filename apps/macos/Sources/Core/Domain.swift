@@ -141,12 +141,29 @@ struct DoctorReport: Decodable, Sendable {
 }
 
 struct TaskSpaceSummary: Decodable, Identifiable, Hashable, Sendable {
+    struct Lifecycle: Decodable, Hashable, Sendable {
+        struct Failure: Decodable, Hashable, Sendable {
+            let code: String
+            let safeRecovery: String
+        }
+
+        let status: String?
+        let stage: String?
+        let startedAt: String?
+        let endedAt: String?
+        let approvalAvailable: Bool?
+        let lastFailure: Failure?
+    }
+
     let taskId: String
     let runtimeId: Int
     let name: String
     let createdBy: String?
     let ownership: String?
     let recentTabTitles: [String]
+    let executionPolicy: String?
+    let lifecycle: Lifecycle?
+    let auditEventCount: Int?
     var profileId = "account-1"
 
     var id: String {
@@ -160,9 +177,51 @@ struct TaskSpaceSummary: Decodable, Identifiable, Hashable, Sendable {
         case createdBy
         case ownership
         case recentTabTitles
+        case executionPolicy
+        case lifecycle
+        case auditEventCount
     }
 
     var isAgentOwned: Bool {
         ownership == "agent"
     }
+
+    var executionPolicyValue: String {
+        executionPolicy ?? "requires-approval"
+    }
+
+    var lifecycleStatus: String {
+        lifecycle?.status ?? "running"
+    }
+
+    var requiresRecovery: Bool {
+        lifecycle?.lastFailure != nil
+    }
+}
+
+struct TaskAuditEvent: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let at: String
+    let runtimeId: Int
+    let type: String
+    let actor: String?
+    let action: String?
+    let code: String?
+    let safeRecovery: String?
+    var profileId = "account-1"
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case at
+        case runtimeId
+        case type
+        case actor
+        case action
+        case code
+        case safeRecovery
+    }
+}
+
+struct TaskAuditResponse: Decodable, Sendable {
+    var events: [TaskAuditEvent]
 }

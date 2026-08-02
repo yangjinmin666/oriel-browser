@@ -14,11 +14,14 @@ import { join } from "node:path";
 import { startDaemonRpcServer } from "./daemon-rpc.mjs";
 import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
 import {
-  APP_SUPPORT_DIR,
+  RUNTIME_STATE_DIR,
   loadRuntimeConfig,
   runtimeProfileFile,
 } from "./runtime-config.mjs";
 import { createStockChromeHost } from "./stock-chrome-host.mjs";
+import { createTaskGovernance } from "./task-governance.mjs";
+
+const APP_SUPPORT_DIR = RUNTIME_STATE_DIR;
 
 export const DAEMON_SOCKET_PATH =
   process.env.ORIEL_DAEMON_SOCKET ||
@@ -80,6 +83,10 @@ const config = loadRuntimeConfig();
 let host;
 let server;
 let shuttingDown = false;
+const governance = createTaskGovernance({
+  statePath: join(APP_SUPPORT_DIR, runtimeProfileFile("task-governance", "json")),
+  profileId: config.profileId,
+});
 
 async function shutdown(reason, exitCode = 0) {
   if (shuttingDown) return;
@@ -130,6 +137,7 @@ try {
   server = await startDaemonRpcServer({
     host,
     socketPath: DAEMON_SOCKET_PATH,
+    governance,
     metadata: {
       profileId: config.profileId,
       browserName: config.browserName,

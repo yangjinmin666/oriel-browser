@@ -25,11 +25,14 @@ struct OrielApp: App {
     @NSApplicationDelegateAdaptor(OrielApplicationDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    private let forceControlCenter = ProcessInfo.processInfo.environment[
+        "ORIEL_FORCE_CONTROL_CENTER"
+    ] == "1"
 
     var body: some Scene {
         WindowGroup {
             Group {
-                if hasCompletedOnboarding {
+                if hasCompletedOnboarding || forceControlCenter {
                     ControlCenterView()
                         .environmentObject(model)
                 } else {
@@ -42,7 +45,9 @@ struct OrielApp: App {
             }
             .background(WindowBehavior())
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowStyle(.titleBar)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 900, height: 720)
 
         MenuBarExtra {
             Text(

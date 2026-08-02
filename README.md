@@ -143,10 +143,21 @@ forgets to create one, Oriel automatically selects a persistent
 created for that space; it does not enumerate, reuse, or close the tabs the user
 already had open.
 
+The task-space page also keeps a local, metadata-only lifecycle record: the
+execution policy, one-action approvals, hand-off/resume events, safe failures,
+and recovery requests. `Read-only` and `Draft` block browser-changing actions;
+`Requires approval` blocks each such action until the user approves the next
+one. This authorization is independent of task-space ownership: an agent-owned
+space is not automatically authorized to make a browser change. Policy changes,
+approvals, recovery, and audit history are control-plane actions owned by the
+Oriel app; they are deliberately absent from the agent-facing `taskSpaces` API,
+so an agent cannot approve its own blocked action through the supported facade.
+
 Normal spaces share the selected Oriel browser profile, so they can reuse its
-website sign-ins. This is tab isolation, not credential isolation. An explicit
-temporary isolated browser context is available for clean one-off work, but it
-does not inherit the persistent profile's login state.
+website sign-ins. This is tab isolation, **not** login or credential isolation.
+Use a distinct Oriel browser profile lane for each account that must remain
+separate. An explicit temporary isolated browser context is available for clean
+one-off work, but it does not inherit the persistent profile's login state.
 
 Inspect or stop the persistent background process:
 

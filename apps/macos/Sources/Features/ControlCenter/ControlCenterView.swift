@@ -2,7 +2,9 @@ import SwiftUI
 
 struct ControlCenterView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var selectedPage = 0
+    @State private var selectedPage = ProcessInfo.processInfo.environment[
+        "ORIEL_OPEN_TASK_SPACES"
+    ] == "1" ? 1 : 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -54,138 +56,139 @@ struct ControlCenterView: View {
 
                 Divider()
 
-                VStack(alignment: .leading, spacing: 24) {
-                    sectionHeader(
-                        L10n.text("control_center.codex.section"),
-                        index: "02"
-                    )
-
-                    VStack(alignment: .leading, spacing: 15) {
-                        HStack {
-                            Image(systemName: model.cliInstalled && model.skillInstalled
-                                ? "checkmark.circle.fill"
-                                : "arrow.down.circle")
-                                .font(.system(size: 21))
-                                .foregroundStyle(
-                                    model.cliInstalled && model.skillInstalled
-                                        ? Color(red: 0.24, green: 0.52, blue: 0.96)
-                                        : Color(red: 0.93, green: 0.27, blue: 0.31)
-                                )
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(model.cliInstalled && model.skillInstalled
-                                    ? L10n.text("control_center.codex.installed")
-                                    : L10n.text("control_center.codex.required"))
-                                    .font(.headline)
-                                Text(L10n.text("control_center.codex.detail"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Button {
-                            model.installCodexIntegration()
-                        } label: {
-                            Label(
-                                model.cliInstalled && model.skillInstalled
-                                    ? L10n.text("control_center.codex.reinstall")
-                                    : L10n.text("control_center.codex.install"),
-                                systemImage: "square.and.arrow.down"
-                            )
-                            .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.black)
-                        .foregroundStyle(.white)
-                        .controlSize(.large)
-                        .disabled(model.busy)
-                    }
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label(
-                            L10n.text("control_center.feature.local"),
-                            systemImage: "lock"
-                        )
-                        Label(
-                            L10n.text("control_center.feature.sessions"),
-                            systemImage: "arrow.triangle.2.circlepath"
-                        )
-                        Label(
-                            L10n.text("control_center.feature.task_spaces"),
-                            systemImage: "square.3.layers.3d"
-                        )
-                    }
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 12) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
                         sectionHeader(
-                            L10n.text("control_center.health.section"),
-                            index: "03"
-                        )
-                        HealthRow(
-                            title: L10n.text("control_center.health.browser"),
-                            detail: L10n.format(
-                                "control_center.health.browser.profiles",
-                                model.browserProfiles.filter(\.connected).count,
-                                model.browserProfiles.count
-                            ),
-                            ready: model.allBrowserProfilesConnected
-                        )
-                        HealthRow(
-                            title: L10n.text("control_center.health.daemon"),
-                            detail: model.daemonRunning
-                                ? L10n.format("control_center.health.daemon.running", model.daemonClientCount)
-                                : L10n.text("control_center.health.daemon.stopped"),
-                            ready: true
-                        )
-                        HealthRow(
-                            title: L10n.text("control_center.health.configuration"),
-                            detail: model.configurationValid
-                                ? L10n.text("control_center.health.configuration.ready")
-                                : L10n.text("control_center.health.configuration.needs_repair"),
-                            ready: model.configurationValid
+                            L10n.text("control_center.codex.section"),
+                            index: "02"
                         )
 
-                        Button {
-                            model.repairConnection()
-                        } label: {
+                        VStack(alignment: .leading, spacing: 15) {
+                            HStack {
+                                Image(systemName: model.cliInstalled && model.skillInstalled
+                                    ? "checkmark.circle.fill"
+                                    : "arrow.down.circle")
+                                    .font(.system(size: 21))
+                                    .foregroundStyle(
+                                        model.cliInstalled && model.skillInstalled
+                                            ? Color(red: 0.24, green: 0.52, blue: 0.96)
+                                            : Color(red: 0.93, green: 0.27, blue: 0.31)
+                                    )
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(model.cliInstalled && model.skillInstalled
+                                        ? L10n.text("control_center.codex.installed")
+                                        : L10n.text("control_center.codex.required"))
+                                        .font(.headline)
+                                    Text(L10n.text("control_center.codex.detail"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
+                            Button {
+                                model.installCodexIntegration()
+                            } label: {
+                                Label(
+                                    model.cliInstalled && model.skillInstalled
+                                        ? L10n.text("control_center.codex.reinstall")
+                                        : L10n.text("control_center.codex.install"),
+                                    systemImage: "square.and.arrow.down"
+                                )
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.black)
+                            .foregroundStyle(.white)
+                            .controlSize(.large)
+                            .disabled(model.busy)
+                        }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 12) {
                             Label(
-                                L10n.text("control_center.health.repair"),
-                                systemImage: "wrench.and.screwdriver"
+                                L10n.text("control_center.feature.local"),
+                                systemImage: "lock"
                             )
-                            .frame(maxWidth: .infinity)
+                            Label(
+                                L10n.text("control_center.feature.sessions"),
+                                systemImage: "arrow.triangle.2.circlepath"
+                            )
+                            Label(
+                                L10n.text("control_center.feature.task_spaces"),
+                                systemImage: "square.3.layers.3d"
+                            )
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.regular)
-                        .disabled(model.busy)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
 
-                        Text(L10n.text("control_center.health.repair_detail"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                        Divider()
 
-                    Spacer()
+                        VStack(alignment: .leading, spacing: 12) {
+                            sectionHeader(
+                                L10n.text("control_center.health.section"),
+                                index: "03"
+                            )
+                            HealthRow(
+                                title: L10n.text("control_center.health.browser"),
+                                detail: L10n.format(
+                                    "control_center.health.browser.profiles",
+                                    model.browserProfiles.filter(\.connected).count,
+                                    model.browserProfiles.count
+                                ),
+                                ready: model.allBrowserProfilesConnected
+                            )
+                            HealthRow(
+                                title: L10n.text("control_center.health.daemon"),
+                                detail: model.daemonRunning
+                                    ? L10n.format("control_center.health.daemon.running", model.daemonClientCount)
+                                    : L10n.text("control_center.health.daemon.stopped"),
+                                ready: true
+                            )
+                            HealthRow(
+                                title: L10n.text("control_center.health.configuration"),
+                                detail: model.configurationValid
+                                    ? L10n.text("control_center.health.configuration.ready")
+                                    : L10n.text("control_center.health.configuration.needs_repair"),
+                                ready: model.configurationValid
+                            )
 
-                    HStack {
-                        Text(Brand.releaseLabel)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.tertiary)
-                        Spacer()
-                        Button {
-                            model.runHealthCheck()
-                        } label: {
-                            Image(systemName: "stethoscope")
+                            Button {
+                                model.repairConnection()
+                            } label: {
+                                Label(
+                                    L10n.text("control_center.health.repair"),
+                                    systemImage: "wrench.and.screwdriver"
+                                )
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.regular)
+                            .disabled(model.busy)
+
+                            Text(L10n.text("control_center.health.repair_detail"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.borderless)
-                        .help(L10n.text("control_center.diagnostics"))
-                        .disabled(model.busy)
+
+                        HStack {
+                            Text(Brand.releaseLabel)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.tertiary)
+                            Spacer()
+                            Button {
+                                model.runHealthCheck()
+                            } label: {
+                                Image(systemName: "stethoscope")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(L10n.text("control_center.diagnostics"))
+                            .disabled(model.busy)
+                        }
                     }
+                    .padding(26)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(26)
                 .frame(width: 310)
               }
             } else {
@@ -215,12 +218,19 @@ struct ControlCenterView: View {
             .frame(minHeight: 58)
             .background(Color.black.opacity(0.025))
         }
-        .frame(minWidth: 760, idealWidth: 820, minHeight: 540, idealHeight: 590)
+        .frame(minWidth: 760, idealWidth: 900, minHeight: 620, idealHeight: 720)
         .background(Color(red: 0.965, green: 0.965, blue: 0.972))
         .foregroundStyle(Color.black)
         .tint(Color.black)
         .preferredColorScheme(.light)
-        .onAppear { model.refresh() }
+        .onAppear {
+            if ProcessInfo.processInfo.environment[
+                "ORIEL_OPEN_TASK_SPACES"
+            ] == "1" {
+                selectedPage = 1
+            }
+            model.refresh()
+        }
     }
 
     private func sectionHeader(_ title: String, index: String) -> some View {

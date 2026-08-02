@@ -17,6 +17,7 @@ struct WindowBehavior: NSViewRepresentable {
             guard let window = view.window else {
                 return
             }
+            window.titleVisibility = .hidden
             window.isMovableByWindowBackground = true
         }
     }

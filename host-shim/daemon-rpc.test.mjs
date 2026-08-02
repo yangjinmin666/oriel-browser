@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { connectDaemonRpc, startDaemonRpcServer } from "./daemon-rpc.mjs";
+import { createTaskGovernance } from "./task-governance.mjs";
 
 function createFakeHost() {
   const spaces = new Map();
@@ -271,6 +272,40 @@ test("daemon rejects methods outside the explicit allowlist", async () => {
     );
     await client.close();
   });
+});
+
+test("task approval is available only through the control-plane RPC", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "oriel-governed-daemon-test-"));
+  const socketPath = join(directory, "daemon.sock");
+  const { host } = createFakeHost();
+  const governance = createTaskGovernance({
+    statePath: join(directory, "task-governance.json"),
+    profileId: "test-profile",
+    sessionId: "test-session",
+  });
+  const server = await startDaemonRpcServer({
+    host,
+    socketPath,
+    governance,
+  });
+  try {
+    const client = await connectDaemonRpc({ socketPath });
+    const task = await client.createTaskSpace("approval-boundary");
+
+    assert.equal(client.approveTaskAction, undefined);
+    await assert.rejects(
+      client.daemonRequest("approveTaskAction", task.id),
+      /method is not allowed/,
+    );
+
+    await client.daemonRequest("control.task.approve-next", task.id);
+    const listed = await client.listTaskSpaces();
+    assert.equal(listed.taskSpaces[0].lifecycle.approvalAvailable, true);
+    await client.close();
+  } finally {
+    await server.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("daemon allows background target tracking without activating a tab", async () => {

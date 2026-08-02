@@ -207,6 +207,7 @@ export async function createStockChromeHost(options = {}) {
           ownership: "agent",
           activeTargetId: null,
           targetIds: new Set(),
+          targetInfo: new Map(),
         };
         spaces.set(id, space);
       }
@@ -238,8 +239,26 @@ export async function createStockChromeHost(options = {}) {
 
   async function pageTargetsForSpace(space) {
     const targets = await pageTargets(space.browserContextId);
-    if (space.browserContextId) return targets;
-    return targets.filter((target) => space.targetIds.has(target.targetId));
+    const owned = space.browserContextId
+      ? targets
+      : targets.filter((target) => space.targetIds.has(target.targetId));
+
+    // Chrome deliberately omits `hidden: true` targets from Target.getTargets.
+    // They are still valid CDP targets, though, and Oriel created and owns their
+    // ids. Keep a lightweight local entry so the runtime can attach and operate
+    // them without ever making them visible in the user's tab strip.
+    const listed = new Set(owned.map((target) => target.targetId));
+    for (const targetId of space.targetIds) {
+      if (listed.has(targetId)) continue;
+      const remembered = space.targetInfo.get(targetId) || {};
+      owned.push({
+        targetId,
+        type: "page",
+        title: remembered.title || "",
+        url: remembered.url || "about:blank",
+      });
+    }
+    return owned;
   }
 
   // "当前页"的唯一判定入口。listTabs 的 active 标记和 snapshot 都必须走这里，
@@ -299,13 +318,26 @@ export async function createStockChromeHost(options = {}) {
       return { tabs };
     },
 
-    async createTab(url = "about:blank", context) {
+    async createTab(url = "about:blank", optionsOrContext = {}, maybeContext) {
+      const context = maybeContext || (
+        optionsOrContext?.__orielScopeId ? optionsOrContext : undefined
+      );
+      const options = maybeContext ? (optionsOrContext || {}) : {};
       const space = ensureActiveSpace(context);
       const { targetId } = await cdp("Target.createTarget", {
         url,
         browserContextId: space.browserContextId,
+        // Agent task spaces must never pull a user's browser window forward.
+        // The target remains controllable over CDP and is selected only in
+        // Oriel's internal task-space state.
+        background: options.background !== false,
+        focus: false,
+        // Hidden pages are only used when an automation caller asks for them.
+        // Manual login/hand-off flows keep their normal visible tab.
+        hidden: options.hidden === true,
       });
       space.targetIds.add(targetId);
+      space.targetInfo.set(targetId, { url, title: "" });
       space.activeTargetId = targetId;
       return { targetId, url };
     },
@@ -365,6 +397,7 @@ export async function createStockChromeHost(options = {}) {
         ownership: "agent",
         activeTargetId: null,
         targetIds: new Set(),
+        targetInfo: new Map(),
       };
       spaces.set(id, space);
       selectSpace(id, context);
@@ -379,9 +412,12 @@ export async function createStockChromeHost(options = {}) {
 
     async trackActiveTarget(targetId, context) {
       const space = ensureActiveSpace(context);
-      const targets = await pageTargetsForSpace(space);
-      if (!targets.some((target) => target.targetId === targetId)) {
-        throw new Error("target does not belong to the active task space");
+      if (!space.targetIds.has(targetId)) {
+        const targets = await pageTargetsForSpace(space);
+        if (!targets.some((target) => target.targetId === targetId)) {
+          throw new Error("target does not belong to the active task space");
+        }
+        space.targetIds.add(targetId);
       }
       space.activeTargetId = targetId;
     },
@@ -414,6 +450,7 @@ export async function createStockChromeHost(options = {}) {
         }
       }
       space.targetIds.clear();
+      space.targetInfo.clear();
       space.activeTargetId = null;
       spaces.delete(space.id);
       clearSpaceSelections(space.id);
@@ -464,7 +501,7 @@ export async function createStockChromeHost(options = {}) {
       return {
         getBrowserVersion: (...args) => host.getBrowserVersion(...args),
         listTabs: () => host.listTabs(context),
-        createTab: (url) => host.createTab(url, context),
+        createTab: (url, options) => host.createTab(url, options, context),
         snapshot: (options) => host.snapshot(options, context),
         createTaskSpace: (name, opts) =>
           host.createTaskSpace(name, opts, context),

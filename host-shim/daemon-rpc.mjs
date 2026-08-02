@@ -23,6 +23,30 @@ export const HOST_RPC_METHODS = Object.freeze([
   "upgradeBrowser",
 ]);
 
+const CONTROL_RPC_METHODS = new Set([
+  "control.task.set-policy",
+  "control.task.approve-next",
+  "control.task.recover",
+  "control.task.audit",
+]);
+
+const TASK_SCOPED_RPC_METHODS = new Set([
+  "listTabs",
+  "createTab",
+  "snapshot",
+  "trackActiveTarget",
+]);
+
+function isSafeLocalTab(url) {
+  return typeof url === "string" && url.trim().toLowerCase() === "about:blank";
+}
+
+function isHardStop(error) {
+  return /SIDECAR_AGENT_CONTROL_REQUIRED/.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
 function writeMessage(socket, message) {
   if (socket.destroyed || !socket.writable) return false;
   return socket.write(`${JSON.stringify(message)}\n`);
@@ -64,6 +88,7 @@ export async function startDaemonRpcServer({
   host,
   socketPath,
   metadata = {},
+  governance = null,
   onShutdown = () => {},
 }) {
   mkdirSync(dirname(socketPath), { recursive: true, mode: 0o700 });
@@ -80,6 +105,28 @@ export async function startDaemonRpcServer({
 
   function broadcast(message) {
     for (const client of clients) sendToClient(client, message);
+  }
+
+  async function ensureGovernedTask(client) {
+    if (!governance || client.activeTaskRuntimeId) return;
+
+    // The stock browser host creates `oriel-default` lazily on the first
+    // browser-scoped call. Synchronize that host-owned fallback into the
+    // governance layer before evaluating any write policy. This preserves the
+    // default isolation guarantee without treating the implicit space as an
+    // ungoverned browser session.
+    await client.host.listTabs();
+    const listed = await client.host.listTaskSpaces();
+    const fallback = listed?.taskSpaces?.find(
+      (space) => space?.name === "oriel-default",
+    );
+    const runtimeId = Number(fallback?.id);
+    if (!Number.isInteger(runtimeId) || runtimeId <= 0) {
+      throw new Error("A named Oriel task space is required before a browser change");
+    }
+    await client.host.useTaskSpace(runtimeId);
+    client.activeTaskRuntimeId = runtimeId;
+    governance.registerTask(fallback);
   }
 
   host.onCDPMessage = (raw) => {
@@ -135,6 +182,7 @@ export async function startDaemonRpcServer({
     const client = {
       id: randomUUID(),
       socket,
+      activeTaskRuntimeId: null,
       host:
         typeof host.forScope === "function"
           ? host.forScope(randomUUID())
@@ -185,6 +233,11 @@ export async function startDaemonRpcServer({
               });
               return;
             }
+            await ensureGovernedTask(client);
+            governance?.authorizeCDP(
+              client.activeTaskRuntimeId,
+              payload.method,
+            );
             const wireId = wireMessageId++;
             cdpRoutes.set(wireId, {
               client,
@@ -195,6 +248,11 @@ export async function startDaemonRpcServer({
             payload.id = wireId;
             host.sendCDPMessage(JSON.stringify(payload));
           } catch (error) {
+            if (isHardStop(error)) {
+              governance?.hardStop(client.activeTaskRuntimeId);
+            } else if (!error?.code?.startsWith("ORIEL_")) {
+              governance?.recordFailure(client.activeTaskRuntimeId, "cdp-command");
+            }
             sendToClient(client, {
               type: "cdp-error",
               ...errorPayload(error),
@@ -216,11 +274,37 @@ export async function startDaemonRpcServer({
           } else if (message.method === "daemon.shutdown") {
             result = { done: true };
             queueMicrotask(onShutdown);
+          } else if (CONTROL_RPC_METHODS.has(message.method)) {
+            if (!governance) {
+              throw new Error("daemon governance is unavailable");
+            }
+            const args = Array.isArray(message.args) ? message.args : [];
+            if (message.method === "control.task.audit" && args.length === 0) {
+              result = governance.listAudit();
+            } else {
+              const runtimeId = Number(args[0]);
+              if (!Number.isInteger(runtimeId) || runtimeId <= 0) {
+                throw new Error("task governance requires a numeric task space id");
+              }
+              if (message.method === "control.task.set-policy") {
+                result = governance.setPolicy(runtimeId, args[1]);
+              } else if (message.method === "control.task.approve-next") {
+                result = governance.approveNextAction(runtimeId);
+              } else if (message.method === "control.task.recover") {
+                result = governance.recover(runtimeId);
+              } else {
+                result = governance.listAudit(runtimeId);
+              }
+            }
           } else {
             if (!HOST_RPC_METHODS.includes(message.method)) {
               throw new Error(
                 `daemon method is not allowed: ${message.method}`,
               );
+            }
+            const args = Array.isArray(message.args) ? message.args : [];
+            if (TASK_SCOPED_RPC_METHODS.has(message.method)) {
+              await ensureGovernedTask(client);
             }
             const method = client.host[message.method];
             if (typeof method !== "function") {
@@ -228,9 +312,61 @@ export async function startDaemonRpcServer({
                 `daemon host does not implement ${message.method}`,
               );
             }
-            result = await method(
-              ...(Array.isArray(message.args) ? message.args : []),
-            );
+            if (
+              message.method === "createTab" &&
+              !isSafeLocalTab(args[0] ?? "about:blank")
+            ) {
+              governance?.authorizeRpcWrite(
+                client.activeTaskRuntimeId,
+                "open-tab",
+              );
+            }
+            result = await method(...args);
+
+            if (message.method === "createTaskSpace") {
+              const runtimeId = Number(result?.id);
+              if (Number.isInteger(runtimeId) && runtimeId > 0) {
+                client.activeTaskRuntimeId = runtimeId;
+                governance?.registerTask(result);
+              }
+            } else if (
+              message.method === "useTaskSpace" ||
+              message.method === "claimTaskSpace"
+            ) {
+              const runtimeId = Number(result?.id);
+              if (Number.isInteger(runtimeId) && runtimeId > 0) {
+                client.activeTaskRuntimeId = runtimeId;
+                governance?.registerTask(result);
+              }
+            } else if (message.method === "listTaskSpaces") {
+              result = {
+                ...result,
+                taskSpaces: Array.isArray(result?.taskSpaces)
+                  ? result.taskSpaces.map((space) =>
+                      governance
+                        ? governance.decorateTaskSpace(space)
+                        : space,
+                    )
+                  : [],
+              };
+            } else if (message.method === "createTab") {
+              governance?.notePrepared(client.activeTaskRuntimeId);
+            } else if (message.method === "handOffTaskSpace") {
+              if (result?.done !== false) {
+                governance?.handOff(client.activeTaskRuntimeId);
+              }
+            } else if (message.method === "takeOverTaskSpace") {
+              governance?.takeOver(client.activeTaskRuntimeId);
+            } else if (message.method === "completeTaskSpace") {
+              if (result?.done !== false) {
+                governance?.complete(client.activeTaskRuntimeId);
+              }
+            } else if (message.method === "closeTaskSpace") {
+              if (result?.done !== false) {
+                governance?.close(client.activeTaskRuntimeId);
+                client.activeTaskRuntimeId = null;
+              }
+            }
           }
           sendToClient(client, {
             type: "rpc-result",
@@ -238,6 +374,11 @@ export async function startDaemonRpcServer({
             result,
           });
         } catch (error) {
+          if (isHardStop(error)) {
+            governance?.hardStop(client.activeTaskRuntimeId);
+          } else if (!error?.code?.startsWith("ORIEL_")) {
+            governance?.recordFailure(client.activeTaskRuntimeId, "task-command");
+          }
           sendToClient(client, {
             type: "rpc-error",
             id: message.id,

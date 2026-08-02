@@ -33,6 +33,7 @@ final class AppModel: ObservableObject {
     @Published var cliInstalled = false
     @Published var skillInstalled = false
     @Published var taskSpaces: [TaskSpaceSummary] = []
+    @Published var taskAuditEvents: [TaskAuditEvent] = []
     @Published var taskSpacesLoading = false
     @Published var busy = false
     @Published var message = L10n.text("message.environment.checking")
@@ -77,7 +78,17 @@ final class AppModel: ObservableObject {
     }
 
     var supportDirectory: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        Self.resolvedSupportDirectory
+    }
+
+    private static var resolvedSupportDirectory: URL {
+        if let override = ProcessInfo.processInfo.environment[
+            "ORIEL_APP_SUPPORT_DIR"
+        ], override.hasPrefix("/") {
+            return URL(fileURLWithPath: override, isDirectory: true)
+                .standardizedFileURL
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(
                 "Library/Application Support/\(Brand.supportDirectoryName)",
                 isDirectory: true
@@ -86,10 +97,7 @@ final class AppModel: ObservableObject {
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let support = home.appendingPathComponent(
-            "Library/Application Support/\(Brand.supportDirectoryName)",
-            isDirectory: true
-        )
+        let support = Self.resolvedSupportDirectory
         if !FileManager.default.fileExists(atPath: support.path) {
             for legacyName in Brand.legacySupportDirectoryNames {
                 let legacySupport = home.appendingPathComponent(
@@ -274,8 +282,10 @@ final class AppModel: ObservableObject {
 
         if browserConnected {
             taskSpaces = await loadAllTaskSpaces()
+            taskAuditEvents = await loadAllTaskAuditEvents()
         } else {
             taskSpaces = []
+            taskAuditEvents = []
         }
     }
 
@@ -286,8 +296,47 @@ final class AppModel: ObservableObject {
         taskSpacesLoading = true
         Task {
             taskSpaces = await loadAllTaskSpaces()
+            taskAuditEvents = await loadAllTaskAuditEvents()
             taskSpacesLoading = false
         }
+    }
+
+    func handOffTaskSpace(_ space: TaskSpaceSummary) {
+        runTaskSpaceAction(
+            space,
+            program: "await taskSpaces.handOff(\(space.runtimeId))"
+        )
+    }
+
+    func resumeTaskSpace(_ space: TaskSpaceSummary) {
+        runTaskSpaceAction(
+            space,
+            program: "await taskSpaces.takeOver(\(space.runtimeId))"
+        )
+    }
+
+    func setTaskPolicy(_ policy: String, for space: TaskSpaceSummary) {
+        guard ["read-only", "draft", "requires-approval"].contains(policy) else {
+            return
+        }
+        runTaskControlAction(
+            space,
+            arguments: ["--task-policy", String(space.runtimeId), policy, "--json"]
+        )
+    }
+
+    func approveTaskAction(_ space: TaskSpaceSummary) {
+        runTaskControlAction(
+            space,
+            arguments: ["--approve-task", String(space.runtimeId), "--json"]
+        )
+    }
+
+    func recoverTaskSpace(_ space: TaskSpaceSummary) {
+        runTaskControlAction(
+            space,
+            arguments: ["--recover-task", String(space.runtimeId), "--json"]
+        )
     }
 
     func select(
@@ -488,6 +537,141 @@ final class AppModel: ObservableObject {
         return allSpaces
     }
 
+    private func loadAllTaskAuditEvents() async -> [TaskAuditEvent] {
+        var allEvents: [TaskAuditEvent] = []
+        for profile in browserProfiles
+        where profile.connected && profile.daemonRunning {
+            allEvents.append(
+                contentsOf: await loadTaskAuditEvents(profileId: profile.id)
+            )
+        }
+        return allEvents.sorted { $0.at > $1.at }
+    }
+
+    private func runTaskSpaceAction(
+        _ space: TaskSpaceSummary,
+        program: String
+    ) {
+        guard !taskSpacesLoading else {
+            return
+        }
+        taskSpacesLoading = true
+        lastError = nil
+        Task {
+            let succeeded = await runTaskRuntimeProgram(
+                profileId: space.profileId,
+                program: program
+            )
+            taskSpaces = await loadAllTaskSpaces()
+            taskAuditEvents = await loadAllTaskAuditEvents()
+            taskSpacesLoading = false
+            if !succeeded {
+                lastError = L10n.text("error.task.action_failed")
+            }
+        }
+    }
+
+    private func runTaskRuntimeProgram(
+        profileId: String,
+        program: String
+    ) async -> Bool {
+        guard let nodeURL = Bundle.main.url(
+            forResource: "node",
+            withExtension: nil,
+            subdirectory: "Runtime/bin"
+        ),
+            let entryURL = Bundle.main.url(
+                forResource: "oriel",
+                withExtension: "mjs",
+                subdirectory: "Runtime"
+            )
+        else {
+            return false
+        }
+
+        return await Task.detached {
+            let input = Pipe()
+            let process = Process()
+            process.executableURL = nodeURL
+            process.arguments = [entryURL.path, "nodejs"]
+            var environment = ProcessInfo.processInfo.environment
+            environment["ORIEL_PROFILE_ID"] = profileId
+            process.environment = environment
+            process.standardInput = input
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+            do {
+                try process.run()
+                input.fileHandleForWriting.write(Data(program.utf8))
+                try? input.fileHandleForWriting.close()
+                process.waitUntilExit()
+                return process.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
+    }
+
+    private func runTaskControlAction(
+        _ space: TaskSpaceSummary,
+        arguments: [String]
+    ) {
+        guard !taskSpacesLoading else {
+            return
+        }
+        taskSpacesLoading = true
+        lastError = nil
+        Task {
+            let succeeded = await runTaskControlCommand(
+                profileId: space.profileId,
+                arguments: arguments
+            )
+            taskSpaces = await loadAllTaskSpaces()
+            taskAuditEvents = await loadAllTaskAuditEvents()
+            taskSpacesLoading = false
+            if !succeeded {
+                lastError = L10n.text("error.task.action_failed")
+            }
+        }
+    }
+
+    private func runTaskControlCommand(
+        profileId: String,
+        arguments: [String]
+    ) async -> Bool {
+        guard let nodeURL = Bundle.main.url(
+            forResource: "node",
+            withExtension: nil,
+            subdirectory: "Runtime/bin"
+        ),
+            let entryURL = Bundle.main.url(
+                forResource: "oriel",
+                withExtension: "mjs",
+                subdirectory: "Runtime"
+            )
+        else {
+            return false
+        }
+
+        return await Task.detached {
+            let process = Process()
+            process.executableURL = nodeURL
+            process.arguments = [entryURL.path] + arguments
+            var environment = ProcessInfo.processInfo.environment
+            environment["ORIEL_PROFILE_ID"] = profileId
+            process.environment = environment
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+            do {
+                try process.run()
+                process.waitUntilExit()
+                return process.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
+    }
+
     private func loadTaskSpaces(
         profileId: String
     ) async -> [TaskSpaceSummary] {
@@ -544,6 +728,63 @@ final class AppModel: ObservableObject {
                         spaces[index].profileId = profileId
                     }
                     return spaces
+                }
+                return []
+            } catch {
+                return []
+            }
+        }.value
+    }
+
+    private func loadTaskAuditEvents(
+        profileId: String
+    ) async -> [TaskAuditEvent] {
+        guard let nodeURL = Bundle.main.url(
+            forResource: "node",
+            withExtension: nil,
+            subdirectory: "Runtime/bin"
+        ),
+            let entryURL = Bundle.main.url(
+                forResource: "oriel",
+                withExtension: "mjs",
+                subdirectory: "Runtime"
+            )
+        else {
+            return []
+        }
+
+        return await Task.detached {
+            let output = Pipe()
+            let process = Process()
+            process.executableURL = nodeURL
+            process.arguments = [entryURL.path, "--task-audit", "--json"]
+            var environment = ProcessInfo.processInfo.environment
+            environment["ORIEL_PROFILE_ID"] = profileId
+            process.environment = environment
+            process.standardOutput = output
+            process.standardError = Pipe()
+            do {
+                try process.run()
+                process.waitUntilExit()
+                guard process.terminationStatus == 0 else {
+                    return []
+                }
+                let data = output.fileHandleForReading.readDataToEndOfFile()
+                guard let text = String(data: data, encoding: .utf8) else {
+                    return []
+                }
+                for line in text.split(separator: "\n").reversed() {
+                    guard let lineData = String(line).data(using: .utf8),
+                          var payload = try? JSONDecoder().decode(
+                              TaskAuditResponse.self,
+                              from: lineData
+                          ) else {
+                        continue
+                    }
+                    for index in payload.events.indices {
+                        payload.events[index].profileId = profileId
+                    }
+                    return payload.events
                 }
                 return []
             } catch {

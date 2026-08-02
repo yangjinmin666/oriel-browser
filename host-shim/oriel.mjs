@@ -5,11 +5,11 @@ import { closeSync, existsSync, mkdirSync, openSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { connectDaemonRpc } from "./daemon-rpc.mjs";
+import { HOST_RPC_METHODS, connectDaemonRpc } from "./daemon-rpc.mjs";
 import { inspectDebugEndpoint } from "./debug-endpoint.mjs";
 import {
-  APP_SUPPORT_DIR,
   CONFIG_PATH,
+  RUNTIME_STATE_DIR,
   RUNTIME_PROFILE_ID,
   loadRuntimeConfig,
   runtimeProfileFile,
@@ -28,11 +28,11 @@ const DAEMON_ENTRY = join(RUNTIME_DIR, "oriel-daemon.mjs");
 const DAEMON_SOCKET_PATH =
   process.env.ORIEL_DAEMON_SOCKET ||
   process.env.ZHIYOU_DAEMON_SOCKET ||
-  join(APP_SUPPORT_DIR, runtimeProfileFile("daemon", "sock"));
+  join(RUNTIME_STATE_DIR, runtimeProfileFile("daemon", "sock"));
 const DAEMON_LOG_PATH =
   process.env.ORIEL_DAEMON_LOG ||
   process.env.ZHIYOU_DAEMON_LOG ||
-  join(APP_SUPPORT_DIR, runtimeProfileFile("daemon", "log"));
+  join(RUNTIME_STATE_DIR, runtimeProfileFile("daemon", "log"));
 const args = process.argv.slice(2);
 if (args[0] === "nodejs") args.shift();
 process.env.EGO_BROWSER_AGENT_WORKSPACE ||= SKILL_DIR;
@@ -71,7 +71,7 @@ async function connectExistingDaemon(connectTimeoutMs = 400) {
 }
 
 function launchDaemon() {
-  mkdirSync(APP_SUPPORT_DIR, { recursive: true, mode: 0o700 });
+  mkdirSync(RUNTIME_STATE_DIR, { recursive: true, mode: 0o700 });
   const logFd = openSync(DAEMON_LOG_PATH, "a", 0o600);
   try {
     const child = spawn(process.execPath, [DAEMON_ENTRY], {
@@ -107,6 +107,67 @@ async function ensureDaemon() {
   throw new Error(
     `Oriel 后台没有在 12 秒内启动${lastError ? `: ${lastError.message}` : ""}`,
   );
+}
+
+function taskRuntimeId(value, command) {
+  const runtimeId = Number(value);
+  if (!Number.isInteger(runtimeId) || runtimeId <= 0) {
+    throw new Error(`${command} requires a positive numeric task space id`);
+  }
+  return runtimeId;
+}
+
+function agentHostFacade(client) {
+  const facade = {
+    sendCDPMessage: (payload) => client.sendCDPMessage(payload),
+  };
+  Object.defineProperties(facade, {
+    onCDPMessage: {
+      get: () => client.onCDPMessage,
+      set: (handler) => {
+        client.onCDPMessage = handler;
+      },
+    },
+    onSendCDPMessageError: {
+      get: () => client.onSendCDPMessageError,
+      set: (handler) => {
+        client.onSendCDPMessageError = handler;
+      },
+    },
+  });
+  for (const method of HOST_RPC_METHODS) {
+    facade[method] = (...methodArgs) => client[method](...methodArgs);
+  }
+  return facade;
+}
+
+async function runControlCommand() {
+  const command = args[0];
+  const method = {
+    "--task-policy": "control.task.set-policy",
+    "--approve-task": "control.task.approve-next",
+    "--recover-task": "control.task.recover",
+    "--task-audit": "control.task.audit",
+  }[command];
+  if (!method) return false;
+
+  const { client } = await ensureDaemon();
+  try {
+    let result;
+    if (command === "--task-audit" && (args[1] === undefined || args[1] === "--json")) {
+      result = await client.daemonRequest(method);
+    } else {
+      const runtimeId = taskRuntimeId(args[1], command);
+      result =
+        command === "--task-policy"
+          ? await client.daemonRequest(method, runtimeId, args[2])
+          : await client.daemonRequest(method, runtimeId);
+    }
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+  } finally {
+    await client.close();
+  }
+  return true;
 }
 
 async function doctorReport({ config, configError }) {
@@ -202,8 +263,12 @@ if (args[0] === "--daemon-stop") {
   process.exit(0);
 }
 
+if (await runControlCommand()) {
+  process.exit(0);
+}
+
 const { client: host } = await ensureDaemon();
-globalThis.ego = host;
+globalThis.ego = agentHostFacade(host);
 
 try {
   const { runMain } = await import(

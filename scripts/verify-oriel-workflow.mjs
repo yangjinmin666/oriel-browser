@@ -199,6 +199,7 @@ async function main() {
   const environment = {
     ...process.env,
     ORIEL_CONFIG: configPath,
+    ORIEL_STATE_DIR: temporaryRoot,
     ORIEL_DAEMON_SOCKET: socketPath,
     ORIEL_DAEMON_LOCK: lockPath,
     ORIEL_DAEMON_LOG: logPath,
@@ -228,15 +229,51 @@ async function main() {
     );
 
     const taskName = "oriel-packaged-workflow";
+    const prepared = await run(bundledNode, [bundledCli, "nodejs"], {
+      env: environment,
+      input: `
+        const task = await taskSpaces.useOrCreate(${JSON.stringify(taskName)});
+        console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "prepared", taskId: task.id }));
+      `,
+    });
+    const preparedResult = resultFrom(prepared.stdout, "prepared");
+
+    let approvalBlocked = false;
+    try {
+      await run(bundledNode, [bundledCli, "nodejs"], {
+        env: environment,
+        input: `
+          await taskSpaces.useOrCreate(${JSON.stringify(taskName)});
+          await browser.openOrReuseTab(${JSON.stringify(fixture.url)}, { wait: false });
+        `,
+      });
+    } catch (error) {
+      approvalBlocked = /Approval is required before the next browser change/.test(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    assert(approvalBlocked, "agent browser change was not blocked before user approval");
+
+    await run(
+      bundledNode,
+      [bundledCli, "--approve-task", String(preparedResult.taskId), "--json"],
+      { env: environment },
+    );
+
     const first = await run(bundledNode, [bundledCli, "nodejs"], {
       env: environment,
       input: `
         const task = await taskSpaces.useOrCreate(${JSON.stringify(taskName)});
-        const tab = await browser.openOrReuseTab(${JSON.stringify(fixture.url)}, { wait: true, timeout: 10000 });
-        const snapshot = await page.snapshot({ scope: "full_page" });
-        const currentUrl = await page.url();
+        const tab = await browser.openOrReuseTab(${JSON.stringify(fixture.url)}, { wait: false });
+        let snapshot = "";
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await page.waitForTimeout(100);
+          snapshot = await page.snapshot({ scope: "full_page" });
+          if (snapshot.includes("Oriel packaged workflow")) break;
+        }
         const tabs = await browser.listTabs();
-        if (!snapshot.includes("Oriel packaged workflow") || currentUrl !== ${JSON.stringify(fixture.url)}) throw new Error("first CLI call did not reach the fixture page; opened=" + tab.targetId + "; page=" + currentUrl + "; tabs=" + JSON.stringify(tabs) + "; preview=" + JSON.stringify(snapshot.slice(0, 500)));
+        const current = tabs.find((item) => item.targetId === tab.targetId);
+        if (!snapshot.includes("Oriel packaged workflow") || current?.url !== ${JSON.stringify(fixture.url)}) throw new Error("first CLI call did not reach the fixture page; opened=" + tab.targetId + "; tabs=" + JSON.stringify(tabs) + "; preview=" + JSON.stringify(snapshot.slice(0, 500)));
         console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "first", taskId: task.id, targetId: tab.targetId, snapshotLength: snapshot.length }));
       `,
     });
@@ -249,8 +286,7 @@ async function main() {
         const task = await taskSpaces.useOrCreate(${JSON.stringify(taskName)});
         const tab = await browser.currentTab();
         const snapshot = await page.snapshot({ scope: "full_page" });
-        const currentUrl = await page.url();
-        if (!snapshot.includes("Oriel packaged workflow") || currentUrl !== ${JSON.stringify(fixture.url)}) throw new Error("second CLI call did not reuse the fixture page; page=" + currentUrl + "; preview=" + JSON.stringify(snapshot.slice(0, 500)));
+        if (!snapshot.includes("Oriel packaged workflow") || tab?.url !== ${JSON.stringify(fixture.url)}) throw new Error("second CLI call did not reuse the fixture page; page=" + tab?.url + "; preview=" + JSON.stringify(snapshot.slice(0, 500)));
         if (!tab?.targetId) throw new Error("reused task has no active page");
         console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "second", taskId: task.id, targetId: tab.targetId, snapshotLength: snapshot.length }));
         await taskSpaces.complete(task.id, { keep: false });
@@ -277,13 +313,44 @@ async function main() {
     );
 
     const fallbackUrl = new URL("fallback", fixture.url).href;
+    const fallbackPrepared = await run(bundledNode, [bundledCli, "nodejs"], {
+      env: environment,
+      input: `
+        const before = await browser.listTabs();
+        if (before.length !== 0) throw new Error("implicit task space exposed pre-existing browser tabs: " + JSON.stringify(before));
+        const spaces = await taskSpaces.list();
+        const task = spaces.find((item) => item.name === "oriel-default");
+        if (!task?.id) throw new Error("implicit task space was not created");
+        console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "fallback-prepared", taskId: task.id }));
+      `,
+    });
+    const fallbackPreparedResult = resultFrom(
+      fallbackPrepared.stdout,
+      "fallback-prepared",
+    );
+    await run(
+      bundledNode,
+      [
+        bundledCli,
+        "--approve-task",
+        String(fallbackPreparedResult.taskId),
+        "--json",
+      ],
+      { env: environment },
+    );
+
     const fallbackFirst = await run(bundledNode, [bundledCli, "nodejs"], {
       env: environment,
       input: `
         const before = await browser.listTabs();
         if (before.length !== 0) throw new Error("implicit task space exposed pre-existing browser tabs: " + JSON.stringify(before));
-        const tab = await browser.openOrReuseTab(${JSON.stringify(fallbackUrl)}, { wait: true, timeout: 10000 });
-        const snapshot = await page.snapshot({ scope: "full_page" });
+        const tab = await browser.openOrReuseTab(${JSON.stringify(fallbackUrl)}, { wait: false });
+        let snapshot = "";
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await page.waitForTimeout(100);
+          snapshot = await page.snapshot({ scope: "full_page" });
+          if (snapshot.includes("Oriel default isolation")) break;
+        }
         if (!snapshot.includes("Oriel default isolation")) throw new Error("implicit task space snapshot missed its own page");
         console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "fallback-first", targetId: tab.targetId, snapshotLength: snapshot.length }));
       `,
