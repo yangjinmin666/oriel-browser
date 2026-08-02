@@ -71,7 +71,7 @@
 "task_spaces.browser_required" = "Start a browser connection";
 "task_spaces.browser_required_detail" = "Connect Tabbit, Chrome, or Edge to see agent task spaces here.";
 "task_spaces.empty" = "No active task spaces";
-"task_spaces.empty_detail" = "Independent tabs appear here when JobJet or another agent starts browsing.";
+"task_spaces.empty_detail" = "Independent tabs appear here when an agent starts browsing.";
 "task_spaces.loading" = "Loading agent spaces…";
 "task_spaces.no_page" = "This space has no active page to display yet.";
 "task_spaces.pages" = "Current page";
