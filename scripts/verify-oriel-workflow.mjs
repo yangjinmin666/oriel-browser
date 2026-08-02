@@ -72,7 +72,14 @@ function startFixture() {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(`<!doctype html>
       <html><head><title>${title}</title></head>
-      <body><main><h1>${title}</h1><p>Browser snapshot smoke test.</p></main></body></html>`);
+      <body><main>
+        <h1>${title}</h1>
+        <p>Browser snapshot smoke test.</p>
+        <button id="approval-probe" type="button"
+          onclick="this.textContent='Approved browser change'">
+          Browser change requires approval
+        </button>
+      </main></body></html>`);
   });
   return new Promise((resolve, reject) => {
     server.once("error", reject);
@@ -174,7 +181,10 @@ function resultFrom(output, phase) {
 
 async function debugTargets(endpoint) {
   const response = await fetch(`${endpoint}/json/list`);
-  assert(response.ok, `Could not inspect temporary Chrome targets: ${response.status}`);
+  assert(
+    response.ok,
+    `Could not inspect temporary Chrome targets: ${response.status}`,
+  );
   return response.json();
 }
 
@@ -186,7 +196,9 @@ async function main() {
     `Google Chrome is required for this smoke test: ${chromePath}`,
   );
 
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "oriel-packaged-workflow-"));
+  const temporaryRoot = await mkdtemp(
+    join(tmpdir(), "oriel-packaged-workflow-"),
+  );
   const port = await findFreePort();
   const endpoint = `http://127.0.0.1:${port}`;
   const configPath = join(temporaryRoot, "config.json");
@@ -244,15 +256,22 @@ async function main() {
         env: environment,
         input: `
           await taskSpaces.useOrCreate(${JSON.stringify(taskName)});
-          await browser.openOrReuseTab(${JSON.stringify(fixture.url)}, { wait: false });
+          await browser.openOrReuseTab(${JSON.stringify(fixture.url)}, { wait: true });
+          await page.evaluate(() => {
+            document.querySelector("#approval-probe").textContent = "Approved browser change";
+          });
         `,
       });
     } catch (error) {
-      approvalBlocked = /Approval is required before the next browser change/.test(
-        error instanceof Error ? error.message : String(error),
-      );
+      approvalBlocked =
+        /Approval is required before the next browser change/.test(
+          error instanceof Error ? error.message : String(error),
+        );
     }
-    assert(approvalBlocked, "agent browser change was not blocked before user approval");
+    assert(
+      approvalBlocked,
+      "agent browser mutation was not blocked before user approval",
+    );
 
     await run(
       bundledNode,
@@ -264,17 +283,23 @@ async function main() {
       env: environment,
       input: `
         const task = await taskSpaces.useOrCreate(${JSON.stringify(taskName)});
-        const tab = await browser.openOrReuseTab(${JSON.stringify(fixture.url)}, { wait: false });
+        const tab = await browser.currentTab();
+        if (!tab?.targetId) throw new Error("approved task has no active fixture page");
         let snapshot = "";
         for (let attempt = 0; attempt < 30; attempt++) {
           await page.waitForTimeout(100);
           snapshot = await page.snapshot({ scope: "full_page" });
           if (snapshot.includes("Oriel packaged workflow")) break;
         }
+        await page.evaluate(() => {
+          document.querySelector("#approval-probe").textContent = "Approved browser change";
+        });
+        const approvedSnapshot = await page.snapshot({ scope: "full_page" });
         const tabs = await browser.listTabs();
         const current = tabs.find((item) => item.targetId === tab.targetId);
         if (!snapshot.includes("Oriel packaged workflow") || current?.url !== ${JSON.stringify(fixture.url)}) throw new Error("first CLI call did not reach the fixture page; opened=" + tab.targetId + "; tabs=" + JSON.stringify(tabs) + "; preview=" + JSON.stringify(snapshot.slice(0, 500)));
-        console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "first", taskId: task.id, targetId: tab.targetId, snapshotLength: snapshot.length }));
+        if (!approvedSnapshot.includes("Approved browser change")) throw new Error("approved browser mutation did not update the fixture page");
+        console.log("ORIEL_WORKFLOW_RESULT " + JSON.stringify({ phase: "first", taskId: task.id, targetId: tab.targetId, snapshotLength: approvedSnapshot.length }));
       `,
     });
     const firstResult = resultFrom(first.stdout, "first");
@@ -397,7 +422,10 @@ async function main() {
     );
 
     const daemonLog = await readFile(logPath, "utf8").catch(() => "");
-    assert(!/Error:|Unhandled|uncaught/i.test(daemonLog), "daemon log contains an error");
+    assert(
+      !/Error:|Unhandled|uncaught/i.test(daemonLog),
+      "daemon log contains an error",
+    );
     process.stdout.write(
       "Oriel packaged workflow passed: named and implicit spaces reused only their own pages, protected pre-existing tabs, and returned semantic snapshots.\n",
     );
@@ -419,6 +447,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+  );
   process.exitCode = 1;
 });

@@ -30,8 +30,8 @@ The packaged Oriel runtime has an end-to-end check that starts an isolated
 temporary Chrome profile, opens a page, and proves two independent CLI calls
 reuse the same task and page before reading semantic snapshots. Chrome and
 Tabbit have also been manually exercised through the macOS control center.
-The runtime test suite currently contains 303 passing tests, plus 28 host and
-daemon protocol tests.
+The runtime and host/daemon protocol suites are both enforced by CI and by the
+complete local Beta gate.
 
 ## How it works
 

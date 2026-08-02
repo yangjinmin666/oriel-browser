@@ -5,7 +5,9 @@ on:
     paths:
       - ".github/workflows/quality-gates.yml"
       - "lefthook.yml"
+      - "host-shim/**"
       - "package/ego-browser/**"
+      - "scripts/check-public-release.sh"
       - "skills/ego-browser/learnings/**"
   push:
     branches:
@@ -14,8 +16,17 @@ on:
     paths:
       - ".github/workflows/quality-gates.yml"
       - "lefthook.yml"
+      - "host-shim/**"
       - "package/ego-browser/**"
+      - "scripts/check-public-release.sh"
       - "skills/ego-browser/learnings/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality-gates:
@@ -69,7 +80,12 @@ jobs:
         working-directory: package/ego-browser
         run: npm test
 
+      - name: Run host tests
+        run: node --test host-shim/*.test.mjs
+
+      - name: Check public repository safety
+        run: bash scripts/check-public-release.sh
+
       - name: Validate site skills
         working-directory: package/ego-browser
         run: npm run validate:site-skills
-

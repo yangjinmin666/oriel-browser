@@ -40,14 +40,14 @@ The canonical ownership map is in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Before adding a feature, place it
 at the narrowest correct boundary:
 
-| Change | Correct home |
-| --- | --- |
-| Onboarding, setting, status, or recovery flow | `apps/macos/Sources/Features/` |
-| Shared app state, configuration, localization | `apps/macos/Sources/Core/` |
-| CLI, daemon, configuration validation, local RPC | `host-shim/` |
-| Browser interaction such as click, drag, typing, waits | `package/ego-browser/src/driver/` |
-| Public Agent helper surface | `package/ego-browser/src/helpers.ts` and `format.ts` |
-| Site-specific selector or workflow knowledge | `skills/ego-browser/learnings/<site>/` |
+| Change                                                 | Correct home                                         |
+| ------------------------------------------------------ | ---------------------------------------------------- |
+| Onboarding, setting, status, or recovery flow          | `apps/macos/Sources/Features/`                       |
+| Shared app state, configuration, localization          | `apps/macos/Sources/Core/`                           |
+| CLI, daemon, configuration validation, local RPC       | `host-shim/`                                         |
+| Browser interaction such as click, drag, typing, waits | `package/ego-browser/src/driver/`                    |
+| Public Agent helper surface                            | `package/ego-browser/src/helpers.ts` and `format.ts` |
+| Site-specific selector or workflow knowledge           | `skills/ego-browser/learnings/<site>/`               |
 
 ## Development Setup
 
@@ -120,6 +120,19 @@ data` or `docs: clarify local endpoint safety`. A pull request should explain:
 
 Before opening one, make sure `git diff --check` is clean and the full Beta gate
 passes for changes that affect packaging, host integration, or public behavior.
+
+## Version Tags and Builds
+
+Oriel release tags use the product-specific `oriel-v<version>` form, where the
+version must match the `VERSION` value exactly. For example,
+`VERSION=0.2.0-alpha` is tagged as `oriel-v0.2.0-alpha`. Plain `v*` tags in the
+repository belong to the imported upstream history and must not trigger an
+Oriel package or Release.
+
+The macOS workflow builds and uploads a CI artifact for an Oriel tag, but it
+does not publish a GitHub Release. Public Releases remain a deliberate
+maintainer action until Developer ID signing, notarization, and the clean-user
+acceptance procedure are complete.
 
 ## License and Upstream Notice
 

@@ -38,4 +38,28 @@ for required_pattern in \
   fi
 done
 
+CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
+MACOS_WORKFLOW="$ROOT/.github/workflows/macos-app.yml"
+
+if grep -R -n -E 'title="ego lite|ego-browser-\$\{version_tag\}|gh release (create|edit|upload)' \
+  "$ROOT/.github/workflows" >/dev/null; then
+  echo "GitHub workflows still contain the inherited ego-lite release path." >&2
+  exit 1
+fi
+
+if ! grep -Fq 'node --test host-shim/*.test.mjs' "$CI_WORKFLOW"; then
+  echo "CI must run the host-shim test suite." >&2
+  exit 1
+fi
+
+if grep -Fq -- '- "v*"' "$MACOS_WORKFLOW"; then
+  echo "macOS packaging must not react to inherited upstream v* tags." >&2
+  exit 1
+fi
+
+if ! grep -Fq -- '- "oriel-v*"' "$MACOS_WORKFLOW"; then
+  echo "macOS packaging must use Oriel-namespaced release tags." >&2
+  exit 1
+fi
+
 echo "Public release check passed."
