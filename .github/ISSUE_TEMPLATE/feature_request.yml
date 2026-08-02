@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement to ego lite or ego-browser.
+description: Propose an improvement to Oriel.
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,18 +7,22 @@ body:
   - type: markdown
     attributes:
       value: |
-        Describe the user problem before the proposed implementation. Broader ideas and early-stage discussion are welcome in [GitHub Discussions](https://github.com/CitroLabs/ego-lite/discussions).
+        Describe the user problem before the proposed implementation.
+
+        Oriel deliberately does not accept requests to bypass CAPTCHAs, platform risk controls, or anti-abuse systems, or to automate bulk consequential actions such as mass messaging or applications.
 
   - type: dropdown
     id: component
     attributes:
       label: Component
       options:
-        - ego lite browser app
-        - ego-browser runtime or CLI
-        - Agent skill or instructions
-        - Site learning
-        - Installation or update
+        - Oriel macOS control center
+        - Managed browser launch or connection
+        - Oriel daemon or CLI
+        - Agent integration or skill install (Codex / Claude Code)
+        - Task space policy or approval
+        - Site notes
+        - Installation or first run
         - Documentation
         - Other or unsure
     validations:
@@ -58,7 +62,9 @@ body:
     attributes:
       label: Before submitting
       options:
-        - label: I searched existing issues and discussions for a similar request.
+        - label: I searched existing issues for a similar request.
           required: true
         - label: This request describes one focused problem.
+          required: true
+        - label: This request does not ask Oriel to bypass a platform's security or anti-abuse controls.
           required: true

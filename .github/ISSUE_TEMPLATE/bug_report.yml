@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem with ego lite or ego-browser.
+description: Report a reproducible problem with Oriel.
 title: "[Bug]: "
 labels:
   - bug
@@ -7,20 +7,24 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping us improve ego lite. Please search existing issues first and include the smallest reliable reproduction you can provide.
+        Thanks for helping improve Oriel. Please search existing issues first and include the smallest reliable reproduction you can provide.
 
-        For security vulnerabilities, use a [private security advisory](https://github.com/CitroLabs/ego-lite/security/advisories/new) instead.
+        Oriel is `v0.2.0-alpha` and is not Developer ID signed or notarized. A Gatekeeper warning on first launch is a known limitation, not a bug. See [the first-open steps](https://github.com/yangjinmin666/oriel-browser/blob/main/README.md#opening-a-distributed-dmg-on-macos).
+
+        For security vulnerabilities, use a [private security advisory](https://github.com/yangjinmin666/oriel-browser/security/advisories/new) instead.
 
   - type: dropdown
     id: component
     attributes:
       label: Affected component
       options:
-        - ego lite browser app
-        - ego-browser runtime or CLI
-        - Agent skill or instructions
-        - Site learning
-        - Installation or update
+        - Oriel macOS control center
+        - Managed browser launch or connection
+        - Oriel daemon or CLI
+        - Agent integration or skill install (Codex / Claude Code)
+        - Task space policy or approval
+        - Site notes
+        - Installation or first run
         - Other or unsure
     validations:
       required: true
@@ -55,12 +59,21 @@ body:
     validations:
       required: true
 
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Diagnostics
+      description: Paste the output of `oriel --doctor`. It reports the browser, config, daemon, CLI, and skill status separately.
+      render: shell
+    validations:
+      required: true
+
   - type: input
     id: version
     attributes:
       label: Version
-      description: Provide the ego lite app version and ego-browser or skill version, if known.
-      placeholder: "ego lite 1.2.5; ego-browser skill 1.2.5"
+      description: Provide the Oriel app version, and the managed browser you selected.
+      placeholder: "Oriel 0.2.0-alpha (build 2); Tabbit"
     validations:
       required: true
 

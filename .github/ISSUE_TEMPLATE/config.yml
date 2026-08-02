@@ -1,14 +1,11 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
-  - name: Questions and ideas
-    url: https://github.com/CitroLabs/ego-lite/discussions
-    about: Ask for help or discuss ideas that are not yet actionable issues.
-  - name: Documentation
-    url: https://lite.ego.app/document/
-    about: Check the guides and reference documentation before opening an issue.
-  - name: Community support
-    url: https://discord.gg/5eGZVvHbTq
-    about: Get setup help and talk with the ego lite community.
+  - name: First-run and troubleshooting guide
+    url: https://github.com/yangjinmin666/oriel-browser/blob/main/docs/BETA_GUIDE.md
+    about: Read the setup, privacy, status, and troubleshooting guide before opening an issue.
+  - name: Known Beta limitations
+    url: https://github.com/yangjinmin666/oriel-browser/blob/main/README.md#opening-a-distributed-dmg-on-macos
+    about: Gatekeeper warnings on first launch are a known unsigned-build limitation, not an install bug.
   - name: Report a security vulnerability
-    url: https://github.com/CitroLabs/ego-lite/security/advisories/new
+    url: https://github.com/yangjinmin666/oriel-browser/security/advisories/new
     about: Privately report vulnerabilities. Do not disclose them in a public issue.

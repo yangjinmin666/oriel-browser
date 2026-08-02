@@ -1,5 +1,5 @@
 name: Site support request
-description: Request reusable ego-browser support for a website or workflow.
+description: Request reusable Oriel support for a website or workflow.
 title: "[Site]: "
 labels:
   - enhancement
@@ -7,7 +7,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Site learnings should capture stable, reusable site knowledge rather than one-off task steps. Never include credentials, cookies, tokens, or other secrets.
+        Site notes should capture stable, reusable site knowledge rather than one-off task steps. Never include credentials, cookies, tokens, or other secrets.
+
+        Oriel does not accept site notes whose purpose is to defeat a CAPTCHA, a risk-control challenge, or an anti-abuse system, or to drive bulk consequential actions such as mass messaging or applications.
 
   - type: input
     id: site
@@ -31,7 +33,7 @@ body:
     id: current_behavior
     attributes:
       label: Current limitation
-      description: Explain where generic ego-browser helpers fail, become unreliable, or require repeated discovery.
+      description: Explain where the generic Oriel helpers fail, become unreliable, or require repeated discovery.
     validations:
       required: true
 
@@ -63,9 +65,11 @@ body:
     attributes:
       label: Before submitting
       options:
-        - label: I searched existing issues and site learnings for this website or workflow.
+        - label: I searched existing issues and site notes for this website or workflow.
           required: true
         - label: I removed all secrets and sensitive browsing data.
           required: true
         - label: This request relies on stable page semantics, not pixel coordinates.
+          required: true
+        - label: This request does not ask Oriel to bypass a platform's security or anti-abuse controls.
           required: true

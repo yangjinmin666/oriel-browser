@@ -9,12 +9,13 @@ body:
     attributes:
       label: Documentation area
       options:
-        - Project README
+        - Project README (English)
+        - 项目 README（简体中文）
+        - Beta guide
+        - Architecture
         - Contributor guide
-        - Agent skill guide
-        - ego-browser API or helper documentation
-        - Installation guide
-        - Website documentation
+        - Agent skill instructions
+        - Site notes
         - Other or unsure
     validations:
       required: true
@@ -23,8 +24,8 @@ body:
     id: location
     attributes:
       label: Location
-      description: Link to the page or provide the repository path and section.
-      placeholder: "https://lite.ego.app/document/... or skills/ego-browser/SKILL.md#..."
+      description: Provide the repository path and section, or a link to the rendered page.
+      placeholder: "docs/BETA_GUIDE.md#... or skills/oriel-browser/SKILL.md#..."
     validations:
       required: true
 
