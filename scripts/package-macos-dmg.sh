@@ -21,9 +21,17 @@ rm -f "$LEGACY_DMG" "${PREVIOUS_DMGS[@]}"
 cp -R "$APP" "$STAGING/Oriel.app"
 ln -s /Applications "$STAGING/Applications"
 
+# `hdiutil -srcfolder` can underestimate filesystem overhead on a clean GitHub
+# macOS runner and create a volume that fills while copying the bundled Node
+# runtime. Size the image from the staged payload with explicit headroom.
+STAGING_KB="$(du -sk "$STAGING" | awk '{print $1}')"
+IMAGE_KB=$((STAGING_KB * 2 + 65536))
+
 hdiutil create \
   -volname "Oriel" \
   -srcfolder "$STAGING" \
+  -size "${IMAGE_KB}k" \
+  -fs HFS+ \
   -ov \
   -format UDZO \
   "$DMG"
