@@ -66,9 +66,12 @@ function startFixture() {
       return;
     }
     const fallback = request.url?.startsWith("/fallback");
+    const protectedTab = request.url?.startsWith("/protected");
     const title = fallback
       ? "Oriel default isolation"
-      : "Oriel packaged workflow";
+      : protectedTab
+        ? "Protected user tab"
+        : "Oriel packaged workflow";
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(`<!doctype html>
       <html><head><title>${title}</title></head>
@@ -188,6 +191,20 @@ async function debugTargets(endpoint) {
   return response.json();
 }
 
+async function openProtectedTarget(endpoint, url) {
+  const response = await fetch(
+    `${endpoint}/json/new?${encodeURIComponent(url)}`,
+    { method: "PUT" },
+  );
+  assert(
+    response.ok,
+    `Could not create a protected browser tab: ${response.status}`,
+  );
+  const target = await response.json();
+  assert(target.id, "Protected browser tab did not have a target id");
+  return target.id;
+}
+
 async function main() {
   assert(existsSync(bundledNode), `Bundled Node is missing: ${bundledNode}`);
   assert(existsSync(bundledCli), `Bundled Oriel CLI is missing: ${bundledCli}`);
@@ -249,6 +266,13 @@ async function main() {
       `,
     });
     const preparedResult = resultFrom(prepared.stdout, "prepared");
+    // Chrome may retire its incidental startup tab when the first real page is
+    // opened. Create a stable sentinel instead so this test only fails when
+    // Oriel actually closes a tab that it did not create or own.
+    const protectedTargetId = await openProtectedTarget(
+      endpoint,
+      new URL("protected", fixture.url).href,
+    );
 
     let approvalBlocked = false;
     try {
@@ -328,15 +352,6 @@ async function main() {
     );
     assert(secondResult.snapshotLength > 0, "reused snapshot was empty");
 
-    const baselineTargets = await debugTargets(endpoint);
-    const baselineTargetIds = new Set(
-      baselineTargets.map((target) => target.id).filter(Boolean),
-    );
-    assert(
-      baselineTargetIds.size > 0,
-      "temporary Chrome had no pre-existing tab to protect",
-    );
-
     const fallbackUrl = new URL("fallback", fixture.url).href;
     const fallbackPrepared = await run(bundledNode, [bundledCli, "nodejs"], {
       env: environment,
@@ -410,12 +425,10 @@ async function main() {
     const finalTargetIds = new Set(
       finalTargets.map((target) => target.id).filter(Boolean),
     );
-    for (const targetId of baselineTargetIds) {
-      assert(
-        finalTargetIds.has(targetId),
-        "closing an Oriel task space closed a pre-existing browser tab",
-      );
-    }
+    assert(
+      finalTargetIds.has(protectedTargetId),
+      "closing an Oriel task space closed a pre-existing browser tab",
+    );
     assert(
       !finalTargetIds.has(fallbackFirstResult.targetId),
       "closing the implicit task space left its owned page open",
